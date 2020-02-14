@@ -1,4 +1,4 @@
-package fi.hsl.suomenlinna_hfp.model;
+package fi.hsl.suomenlinna_hfp.common.model;
 
 import java.util.Objects;
 

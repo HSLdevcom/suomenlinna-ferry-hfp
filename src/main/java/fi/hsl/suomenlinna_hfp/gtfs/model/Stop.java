@@ -1,6 +1,6 @@
 package fi.hsl.suomenlinna_hfp.gtfs.model;
 
-import fi.hsl.suomenlinna_hfp.model.LatLng;
+import fi.hsl.suomenlinna_hfp.common.model.LatLng;
 
 import java.util.Objects;
 
