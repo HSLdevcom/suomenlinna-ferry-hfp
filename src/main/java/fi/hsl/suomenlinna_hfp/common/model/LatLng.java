@@ -1,5 +1,8 @@
 package fi.hsl.suomenlinna_hfp.common.model;
 
+import com.google.gson.*;
+
+import java.lang.reflect.Type;
 import java.util.Objects;
 
 public class LatLng {
@@ -67,4 +70,13 @@ public class LatLng {
     public String toString() {
         return "(" + latitude + ", " + longitude + ")";
     }
+
+    public static class LatLngDeserializer implements JsonDeserializer<LatLng> {
+        @Override
+        public LatLng deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+            JsonArray coordinates = json.getAsJsonObject().get("coordinates").getAsJsonArray();
+            return new LatLng(coordinates.get(1).getAsDouble(), coordinates.get(0).getAsDouble());
+        }
+    }
+
 }
