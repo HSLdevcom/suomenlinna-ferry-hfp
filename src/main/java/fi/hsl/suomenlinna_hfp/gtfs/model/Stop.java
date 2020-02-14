@@ -1,4 +1,4 @@
-package fi.hsl.suomenlinna_hfp.model.gtfs;
+package fi.hsl.suomenlinna_hfp.gtfs.model;
 
 import fi.hsl.suomenlinna_hfp.model.LatLng;
 
