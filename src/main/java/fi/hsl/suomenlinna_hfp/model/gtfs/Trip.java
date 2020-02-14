@@ -7,12 +7,14 @@ public class Trip {
     private String serviceId;
     private String tripId;
     private Integer directionId;
+    private String headsign;
 
-    public Trip(String routeId, String serviceId, String tripId, Integer directionId) {
+    public Trip(String routeId, String serviceId, String tripId, Integer directionId, String headsign) {
         this.routeId = routeId;
         this.serviceId = serviceId;
         this.tripId = tripId;
         this.directionId = directionId;
+        this.headsign = headsign;
     }
 
     public String getRouteId() {
@@ -31,6 +33,10 @@ public class Trip {
         return directionId;
     }
 
+    public String getHeadsign() {
+        return headsign;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -39,12 +45,13 @@ public class Trip {
         return Objects.equals(routeId, trip.routeId) &&
                 Objects.equals(serviceId, trip.serviceId) &&
                 Objects.equals(tripId, trip.tripId) &&
-                Objects.equals(directionId, trip.directionId);
+                Objects.equals(directionId, trip.directionId) &&
+                Objects.equals(headsign, trip.headsign);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(routeId, serviceId, tripId, directionId);
+        return Objects.hash(routeId, serviceId, tripId, directionId, headsign);
     }
 
     @Override
@@ -54,6 +61,7 @@ public class Trip {
                 ", serviceId='" + serviceId + '\'' +
                 ", tripId='" + tripId + '\'' +
                 ", directionId=" + directionId +
+                ", headsign='" + headsign + '\'' +
                 '}';
     }
 }
