@@ -4,11 +4,15 @@ import fi.hsl.suomenlinna_hfp.gtfs.model.Route;
 import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
 import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
 import fi.hsl.suomenlinna_hfp.gtfs.model.Trip;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class GtfsIndex {
+    private static final Logger LOG = LoggerFactory.getLogger(GtfsIndex.class);
+
     public final Map<String, Stop> stopsById;
     public final Map<String, Trip> tripsById;
     public final Map<String, Route> routesById;
@@ -17,6 +21,9 @@ public class GtfsIndex {
     public final Map<String, Set<StopTime>> stopTimesByStopId;
 
     public GtfsIndex(Collection<Stop> stops, Collection<Trip> trips, Collection<Route> routes, Collection<StopTime> stopTimes) {
+        long start = System.nanoTime();
+        LOG.info("Indexing GTFS data");
+
         Map<String, Stop> stopsById = new HashMap<>(stops.size());
         stops.forEach(stop -> stopsById.put(stop.getId(), stop));
 
@@ -55,5 +62,7 @@ public class GtfsIndex {
         this.routesById = Collections.unmodifiableMap(routesById);
         this.stopTimesByTripId = Collections.unmodifiableMap(stopTimesByTripId.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> Collections.unmodifiableSortedSet(entry.getValue()))));
         this.stopTimesByStopId = Collections.unmodifiableMap(stopTimesByStopId.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> Collections.unmodifiableSet(entry.getValue()))));
+
+        LOG.info("GTFS data indexed in {}ms", (System.nanoTime() - start) / 1000000);
     }
 }
