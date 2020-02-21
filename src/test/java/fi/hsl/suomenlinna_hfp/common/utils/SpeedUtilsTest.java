@@ -1,4 +1,4 @@
-package fi.hsl.suomenlinna_hfp.utils;
+package fi.hsl.suomenlinna_hfp.common.utils;
 
 import org.junit.Test;
 
