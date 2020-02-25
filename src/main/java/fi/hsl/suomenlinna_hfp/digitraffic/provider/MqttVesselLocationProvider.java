@@ -52,6 +52,21 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
             @Override
             public void connectComplete(boolean reconnect, String serverURI) {
                 LOG.info("Connected to {} (reconnect: {})", brokerUri, reconnect);
+
+                String[] topics = mmsis.stream().map(mmsi -> "vessels/" + mmsi + "/+/#").toArray(String[]::new);
+                int[] qos = new int[topics.length];
+                Arrays.fill(qos, 0);
+
+                try {
+                    mqttAsyncClient.subscribe(topics, qos).waitForCompletion();
+                } catch (MqttException e) {
+                    LOG.error("Failed to subscribe MQTT topics {} with QoS {}", topics, qos);
+                    onConnectionFailed.accept(e);
+
+                    try {
+                        stop();
+                    } catch (MqttException ex) {}
+                }
             }
 
             @Override
@@ -76,20 +91,6 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
         mqttAsyncClient.connect(connectOptions, null, new IMqttActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
-                String[] topics = mmsis.stream().map(mmsi -> "vessels/" + mmsi + "/+/#").toArray(String[]::new);
-                int[] qos = new int[topics.length];
-                Arrays.fill(qos, 0);
-
-                try {
-                    mqttAsyncClient.subscribe(topics, qos).waitForCompletion();
-                } catch (MqttException e) {
-                    LOG.error("Failed to subscribe MQTT topics {} with QoS {}", topics, qos);
-                    onConnectionFailed.accept(e);
-
-                    try {
-                        stop();
-                    } catch (MqttException ex) {}
-                }
             }
 
             @Override
