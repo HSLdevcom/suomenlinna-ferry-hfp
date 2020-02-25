@@ -33,10 +33,10 @@ before_deploy:
 
 deploy:
   - provider: script
-    script: docker tag $DOCKER_TAG_LOCAL $DOCKER_TAG_LATEST && docker push $DOCKER_IMAGE_LATEST
+    script: docker tag $DOCKER_TAG_LOCAL $DOCKER_TAG_LATEST && docker push $DOCKER_TAG_LATEST
     on:
       branch: master
   - provider: script
-    script: docker tag $DOCKER_TAG_LOCAL $DOCKER_TAG_RELEASE && docker push $DOCKER_IMAGE_RELEASE
+    script: docker tag $DOCKER_TAG_LOCAL $DOCKER_TAG_RELEASE && docker push $DOCKER_TAG_RELEASE
     on:
       tags: true
