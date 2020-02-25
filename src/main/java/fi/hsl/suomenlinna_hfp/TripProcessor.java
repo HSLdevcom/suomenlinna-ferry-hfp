@@ -37,6 +37,7 @@ public class TripProcessor {
 
     private final Duration maxTimeBeforeDeparture;
     private final Duration maxTimeAfterDeparture;
+    private final Duration maxTimeAfterScheduledArrival;
 
     /**
      *
@@ -46,14 +47,16 @@ public class TripProcessor {
      * @param defaultMaxDistanceFromStop Default maximum distance from stop
      * @param maxTimeBeforeDeparture Maximum time for when the vehicle can register for a trip before scheduled departure time
      * @param maxTimeAfterDeparture Maximum time for when the vehicle can register for a trip after scheduled departure time
+     * @param maxTimeAfterScheduledArrival Maximum time after arrival to the last stop. If the vehicle has not finished its trip by this time, it can register for the next trip
      */
-    public TripProcessor(ZoneId timezone, List<String> possibleRoutes, Map<String, Double> maxDistanceFromStop, double defaultMaxDistanceFromStop, Duration maxTimeBeforeDeparture, Duration maxTimeAfterDeparture) {
+    public TripProcessor(ZoneId timezone, List<String> possibleRoutes, Map<String, Double> maxDistanceFromStop, double defaultMaxDistanceFromStop, Duration maxTimeBeforeDeparture, Duration maxTimeAfterDeparture, Duration maxTimeAfterScheduledArrival) {
         this.timezone = timezone;
         this.possibleRoutes = possibleRoutes;
         this.maxDistanceFromStop = maxDistanceFromStop;
         this.defaultMaxDistanceFromStop = defaultMaxDistanceFromStop;
         this.maxTimeBeforeDeparture = maxTimeBeforeDeparture;
         this.maxTimeAfterDeparture = maxTimeAfterDeparture;
+        this.maxTimeAfterScheduledArrival = maxTimeAfterScheduledArrival;
     }
 
     public boolean hasGtfsData() {
@@ -111,7 +114,8 @@ public class TripProcessor {
 
     private boolean canRegisterForTrip(VehicleId vehicleId, ZonedDateTime vehicleTime) {
         return !registeredTrips.containsKey(vehicleId) //Vehicle is not currently registered to any trip
-            || scheduledArrivalTimes.get(vehicleId).last().isBefore(vehicleTime); //Vehicle has finished previous trip
+            || passedStops.get(vehicleId).last().equals(route.get(vehicleId).last().getStopSequence()) //Vehicle has reached its final stop
+            || scheduledArrivalTimes.get(vehicleId).last().plus(maxTimeAfterScheduledArrival).isBefore(vehicleTime); //Vehicle has finished previous trip
     }
 
     /**
