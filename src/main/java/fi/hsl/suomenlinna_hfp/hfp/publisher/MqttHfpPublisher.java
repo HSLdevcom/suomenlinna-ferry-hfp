@@ -9,6 +9,7 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.function.Consumer;
@@ -24,6 +25,8 @@ public class MqttHfpPublisher implements HfpPublisher {
 
     private MqttAsyncClient mqttAsyncClient;
 
+    private int connectionLostCount = 0;
+
     /**
      *
      * @param brokerUri
@@ -37,7 +40,7 @@ public class MqttHfpPublisher implements HfpPublisher {
         mqttAsyncClient = new MqttAsyncClient(brokerUri, MqttClient.generateClientId(), new MemoryPersistence());
 
         MqttConnectOptions connectOptions = new MqttConnectOptions();
-        connectOptions.setCleanSession(true);
+        connectOptions.setCleanSession(false);
         connectOptions.setAutomaticReconnect(true);
         connectOptions.setMqttVersion(4);
         mqttAsyncClient.setCallback(new MqttCallbackExtended() {
@@ -49,6 +52,14 @@ public class MqttHfpPublisher implements HfpPublisher {
             @Override
             public void connectionLost(Throwable cause) {
                 LOG.warn("Connection lost to {}, attempting to reconnect...", brokerUri, cause);
+
+                if (++connectionLostCount > 5) {
+                    LOG.error("Connection lost to {} more than 5 times, aborting..", brokerUri);
+                    onError.accept(new IOException("Connection lost to "+brokerUri));
+                    try {
+                        mqttAsyncClient.disconnectForcibly(0, 1000);
+                    } catch (MqttException e) {}
+                }
             }
 
             @Override
@@ -84,6 +95,9 @@ public class MqttHfpPublisher implements HfpPublisher {
 
     @Override
     public void publish(Topic topic, Payload payload) throws MqttException {
-        mqttAsyncClient.publish(topic.toString(), new MqttMessage(gson.toJson(Collections.singletonMap(topic.eventType.name(), payload)).getBytes(UTF_8)));
+        MqttMessage mqttMessage = new MqttMessage(gson.toJson(Collections.singletonMap(topic.eventType.name(), payload)).getBytes(UTF_8));
+        mqttMessage.setQos(1);
+
+        mqttAsyncClient.publish(topic.toString(), mqttMessage);
     }
 }
