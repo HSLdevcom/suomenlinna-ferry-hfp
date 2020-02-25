@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.function.Consumer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -83,6 +84,6 @@ public class MqttHfpPublisher implements HfpPublisher {
 
     @Override
     public void publish(Topic topic, Payload payload) throws MqttException {
-        mqttAsyncClient.publish(topic.toString(), new MqttMessage(gson.toJson(payload).getBytes(UTF_8)));
+        mqttAsyncClient.publish(topic.toString(), new MqttMessage(gson.toJson(Collections.singletonMap(topic.eventType.name(), payload)).getBytes(UTF_8)));
     }
 }
