@@ -57,6 +57,8 @@ public class SuomenlinnaHfpProducer {
             throw new IllegalStateException("SuomenlinnaHfpProducer is already running");
         }
 
+        LOG.info("Starting SuomenlinnaHfpProducer");
+
         this.thread = Thread.currentThread();
 
         gtfsProvider.start(gtfsFeed -> {
