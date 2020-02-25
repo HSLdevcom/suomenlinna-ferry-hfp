@@ -74,6 +74,10 @@ public class SuomenlinnaHfpProducer {
                     LOG.error("Encountered error:", error);
                 });
                 LOG.info("Stopping program..");
+                gtfsProvider.stop();
+                try {
+                    vesselLocationProvider.stop();
+                } catch (Throwable e) {}
                 break;
             }
 
