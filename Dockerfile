@@ -9,4 +9,4 @@ RUN mkdir /app
 
 COPY --from=build /gradle/build/libs/*-all.jar /app/application.jar
 
-ENTRYPOINT ["java", "-Xms2560m", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-jar", "/app/application.jar"]
+ENTRYPOINT ["java", "-Xms2g", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-jar", "/app/application.jar"]
