@@ -4,7 +4,8 @@ import fi.hsl.suomenlinna_hfp.common.utils.SpeedUtils;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselLocation;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselMetadata;
 import fi.hsl.suomenlinna_hfp.digitraffic.provider.VesselLocationProvider;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
+import fi.hsl.suomenlinna_hfp.gtfs.model.*;
+import fi.hsl.suomenlinna_hfp.gtfs.model.Calendar;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.GtfsIndex;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.ServiceDates;
@@ -14,15 +15,15 @@ import fi.hsl.suomenlinna_hfp.hfp.utils.HfpUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class SuomenlinnaHfpProducer {
     private static final Logger LOG = LoggerFactory.getLogger(SuomenlinnaHfpProducer.class);
+
+    private final Collection<String> routeIds;
 
     private final Map<String, VehicleId> mmsiToVehicleId;
 
@@ -39,7 +40,8 @@ public class SuomenlinnaHfpProducer {
 
     private Thread thread;
 
-    public SuomenlinnaHfpProducer(Map<String, VehicleId> mmsiToVehicleId, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VesselLocationProvider vesselLocationProvider, HfpPublisher hfpPublisher) {
+    public SuomenlinnaHfpProducer(Collection<String> routeIds, Map<String, VehicleId> mmsiToVehicleId, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VesselLocationProvider vesselLocationProvider, HfpPublisher hfpPublisher) {
+        this.routeIds = routeIds;
         this.mmsiToVehicleId = mmsiToVehicleId;
         this.tripProcessor = tripProcessor;
         this.gtfsProvider = gtfsProvider;
@@ -62,8 +64,61 @@ public class SuomenlinnaHfpProducer {
         this.thread = Thread.currentThread();
 
         gtfsProvider.start(gtfsFeed -> {
-            GtfsIndex gtfsIndex = new GtfsIndex(gtfsFeed.stops, gtfsFeed.trips, gtfsFeed.routes, gtfsFeed.stopTimes);
-            ServiceDates serviceDates = new ServiceDates(gtfsFeed.calendars, gtfsFeed.calendarDates);
+            //TODO: refactor this filtering to different method
+            List<Route> routes = new ArrayList<>();
+            gtfsFeed.routes.forEach(route -> {
+                if (routeIds.contains(route.getId())) {
+                    routes.add(route);
+                }
+            });
+
+            List<Trip> trips = new ArrayList<>();
+
+            Set<String> tripIds = new HashSet<>();
+            Set<String> serviceIds = new HashSet<>();
+
+            gtfsFeed.trips.forEach(trip -> {
+                if (routeIds.contains(trip.getRouteId())) {
+                    trips.add(trip);
+                    tripIds.add(trip.getTripId());
+                    serviceIds.add(trip.getServiceId());
+                }
+            });
+
+            List<StopTime> stopTimes = new ArrayList<>();
+
+            Set<String> stopIds = new HashSet<>();
+
+            gtfsFeed.stopTimes.forEach(stopTime -> {
+                if (tripIds.contains(stopTime.getTripId())) {
+                    stopTimes.add(stopTime);
+                    stopIds.add(stopTime.getStopId());
+                }
+            });
+
+            List<Stop> stops = new ArrayList<>();
+            gtfsFeed.stops.forEach(stop -> {
+                if (stopIds.contains(stop.getId())) {
+                    stops.add(stop);
+                }
+            });
+
+            List<Calendar> calendars = new ArrayList<>();
+            gtfsFeed.calendars.forEach(calendar -> {
+                if (serviceIds.contains(calendar.getServiceId())) {
+                    calendars.add(calendar);
+                }
+            });
+
+            List<CalendarDate> calendarDates = new ArrayList<>();
+            gtfsFeed.calendarDates.forEach(calendarDate -> {
+                if (serviceIds.contains(calendarDate.getServiceId())) {
+                    calendarDates.add(calendarDate);
+                }
+            });
+
+            GtfsIndex gtfsIndex = new GtfsIndex(stops, trips, routes, stopTimes);
+            ServiceDates serviceDates = new ServiceDates(calendars, calendarDates);
 
             tripProcessor.updateGtfsData(gtfsIndex, serviceDates);
         }, this::onError);

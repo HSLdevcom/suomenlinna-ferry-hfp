@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
     public static void main(String[] args) throws Throwable {
         //TODO: allow configuring these with env variables
-        List<String > suomenlinnaFerryRoutes = Arrays.asList("1019", "1019E");
+        List<String> suomenlinnaFerryRoutes = Arrays.asList("1019", "1019E");
 
         Map<String, VehicleId> suomenlinnaFerryIds = new HashMap<>();
         suomenlinnaFerryIds.put( "230985490", new VehicleId(60, 2)); //SUOMENLINNA II
@@ -39,6 +39,6 @@ public class Main {
         GtfsProvider gtfsProvider = new HttpGtfsProvider("https://dev.hsl.fi/gtfs/hsl.zip", 12, TimeUnit.HOURS);
         MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher("tcp://hsl-mqtt-lab-d.cinfra.fi:1883");
 
-        new SuomenlinnaHfpProducer(suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
+        new SuomenlinnaHfpProducer(suomenlinnaFerryRoutes, suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
     }
 }
