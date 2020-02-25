@@ -7,7 +7,7 @@ services:
 
 env:
   global:
-    - DOCKER_TAG=suomenlinna-ferry-hfp
+    - DOCKER_TAG=hsldevcom/suomenlinna-ferry-hfp
     - DOCKER_TAG_LOCAL=$DOCKER_TAG:$TRAVIS_COMMIT
     - DOCKER_TAG_LATEST=$DOCKER_TAG:latest
     - DOCKER_TAG_RELEASE=$DOCKER_TAG:${TRAVIS_TAG:-release}
