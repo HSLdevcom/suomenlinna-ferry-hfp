@@ -7,9 +7,10 @@ services:
 
 env:
   global:
-    - DOCKER_TAG_LOCAL=suomenlinna-ferry-hfp:$TRAVIS_COMMIT
-    - DOCKER_TAG_LATEST=$DOCKER_TAG_LOCAL:latest
-    - DOCKER_TAG_RELEASE=$DOCKER_TAG_LOCAL:${TRAVIS_TAG:-release}
+    - DOCKER_TAG=suomenlinna-ferry-hfp
+    - DOCKER_TAG_LOCAL=$DOCKER_TAG:$TRAVIS_COMMIT
+    - DOCKER_TAG_LATEST=$DOCKER_TAG:latest
+    - DOCKER_TAG_RELEASE=$DOCKER_TAG:${TRAVIS_TAG:-release}
 
 cache:
   directories:
