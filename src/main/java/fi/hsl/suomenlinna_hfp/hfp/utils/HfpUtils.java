@@ -17,6 +17,6 @@ public class HfpUtils {
         int hours = time / 3600;
         int minutes = time / 60 - hours * 60;
 
-        return String.join(":", String.valueOf(hours), String.format("%02d", minutes));
+        return String.join(":", String.format("%02d", hours), String.format("%02d", minutes));
     }
 }
