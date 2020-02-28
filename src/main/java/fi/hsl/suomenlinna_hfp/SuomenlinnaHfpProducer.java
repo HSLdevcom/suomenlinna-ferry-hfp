@@ -162,9 +162,10 @@ public class SuomenlinnaHfpProducer {
                         Stop currentStop = tripProcessor.getCurrentStop(vehicleId);
                         Stop nextStop = tripProcessor.getNextStop(vehicleId);
 
-                        String nextStopId = nextStop == null ?
-                                currentStop == null ? "" : currentStop.getId() :
-                                nextStop.getId();
+                        boolean isAtCurrentStop = tripProcessor.isAtCurrentStop(vehicleId);
+
+                        String nextStopId = isAtCurrentStop ? currentStop.getId() :
+                                nextStop != null ? nextStop.getId() : currentStop.getId();
 
                         Topic topic = new Topic(Topic.HFP_V2_PREFIX, Topic.JourneyType.JOURNEY, Topic.TemporalType.ONGOING, Topic.EventType.VP,
                                 Topic.TransportMode.FERRY, vehicleId, tripDescriptor, nextStopId, 5,
@@ -173,7 +174,8 @@ public class SuomenlinnaHfpProducer {
                         Payload payload = new Payload(tripDescriptor.routeName, tripDescriptor.directionId, vehicleId.operatorId, vehicleId.vehicleId,
                                 tst, tsi, spd, hdg,
                                 vesselLocation.coordinates.getLatitude(), vesselLocation.coordinates.getLongitude(), null, null, null, null,
-                                tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", null, tripDescriptor.routeId, 0, vesselMetadata != null ? vesselMetadata.name : null);
+                                tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", isAtCurrentStop ? currentStop.getId() : null,
+                                tripDescriptor.routeId, 0, vesselMetadata != null ? vesselMetadata.name : null);
 
                         hfpPublisher.publish(topic, payload);
                     } else {
