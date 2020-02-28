@@ -56,6 +56,7 @@ public class HttpGtfsProvider implements GtfsProvider {
         }
 
         scheduledFuture = executorService.scheduleAtFixedRate(() -> {
+            ZipInputStream inputStream = null;
             try {
                 long startTime = System.nanoTime();
                 LOG.info("Downloading GTFS feed from {}", url);
@@ -63,7 +64,7 @@ public class HttpGtfsProvider implements GtfsProvider {
                 URLConnection conn = new URL(url).openConnection();
                 conn.connect();
 
-                ZipInputStream inputStream = new ZipInputStream(new BufferedInputStream(conn.getInputStream(), 128 * 1024));
+                inputStream = new ZipInputStream(new BufferedInputStream(conn.getInputStream(), 128 * 1024));
 
                 GtfsFeed gtfsFeed = GtfsParser.parseGtfs(inputStream);
 
@@ -74,6 +75,14 @@ public class HttpGtfsProvider implements GtfsProvider {
             } catch (IOException e) {
                 LOG.warn("Failed to download GTFS feed from {}", url, e);
                 onError.accept(e);
+            } finally {
+                if (inputStream != null) {
+                    try {
+                        inputStream.close();
+                    } catch (IOException e) {
+                        LOG.error("Failed to close input stream?", e);
+                    }
+                }
             }
         }, 0, interval, timeUnit);
     }
