@@ -27,7 +27,11 @@ public class HttpGtfsProvider implements GtfsProvider {
     private final long interval;
     private final TimeUnit timeUnit;
 
-    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor((runnable) -> {
+        Thread t = new Thread(runnable);
+        t.setDaemon(true);
+        return t;
+    });
 
     public HttpGtfsProvider(String url, long interval, TimeUnit timeUnit) {
         this.url = url;
