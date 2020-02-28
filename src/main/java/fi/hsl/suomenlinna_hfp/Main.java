@@ -31,7 +31,7 @@ public class Main {
         double defaultMaxDistanceFromStop = 25;
 
         TripProcessor tripProcessor = new TripProcessor(ZoneId.of("Europe/Helsinki"), suomenlinnaFerryRoutes, maxDistanceFromStop, defaultMaxDistanceFromStop,
-                Duration.of(2, ChronoUnit.MINUTES), //Allow registering for a trip up to 2 minutes before scheduled departure
+                Duration.of(4, ChronoUnit.MINUTES), //Allow registering for a trip up to 4 minutes before scheduled departure
                 Duration.of(5, ChronoUnit.MINUTES), //Allow registering for a trip up to 5 minutes after scheduled departure
                 Duration.of(15, ChronoUnit.MINUTES)); //Allow registering for next trip if the previous trip is not finished within 15 minutes of scheduled arrival to the final stop
 
