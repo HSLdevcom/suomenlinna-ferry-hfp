@@ -15,15 +15,19 @@ import org.slf4j.LoggerFactory;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class TripProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(TripProcessor.class);
 
     private Map<VehicleId, TripDescriptor> registeredTrips = new HashMap<>();
-    private Map<VehicleId, SortedSet<StopTime>> route = new HashMap<>();
-    private Map<VehicleId, SortedSet<ZonedDateTime>> scheduledArrivalTimes = new HashMap<>();
-    private Map<VehicleId, SortedSet<Integer>> passedStops = new HashMap<>();
+    private Map<VehicleId, NavigableMap<Integer, StopTime>> route = new HashMap<>();
+    //Scheduled arrival times to the last stop of the trip
+    private Map<VehicleId, ZonedDateTime> scheduledArrivalTime = new HashMap<>();
+    //Highest stop sequence that the vehicle has reached
+    private Map<VehicleId, Integer> currentStop = new HashMap<>();
+    private Map<VehicleId, Boolean> isAtCurrentStop = new HashMap<>();
 
     private volatile GtfsIndex gtfsIndex;
     private volatile ServiceDates serviceDates;
@@ -76,22 +80,28 @@ public class TripProcessor {
         return registeredTrips.get(vehicleId);
     }
 
+    public boolean isAtCurrentStop(VehicleId vehicleId) {
+        return isAtCurrentStop.get(vehicleId);
+    }
+
     public Stop getCurrentStop(VehicleId vehicleId) {
         if (!hasGtfsData()) {
             throw new IllegalStateException("TripRegister does not have GTFS data");
         }
 
-        Integer lastStopSequence = passedStops.getOrDefault(vehicleId, Collections.emptySortedSet()).last();
+        Integer lastStopSequence = currentStop.get(vehicleId);
         if (lastStopSequence == null) {
             return null;
         }
 
-        Optional<StopTime> lastStopTime = route.getOrDefault(vehicleId, Collections.emptySortedSet()).stream().filter(stopTime -> stopTime.getStopSequence().equals(lastStopSequence)).findAny();
-        return lastStopTime.map(stopTime -> {
-            synchronized (TripProcessor.this) {
-                return gtfsIndex.stopsById.get(stopTime.getStopId());
+        StopTime lastStopTime = route.getOrDefault(vehicleId, Collections.emptyNavigableMap()).get(lastStopSequence);
+        if (lastStopTime != null) {
+            synchronized (this) {
+                return gtfsIndex.stopsById.get(lastStopTime.getStopId());
             }
-        }).orElse(null);
+        } else {
+            return null;
+        }
     }
 
     public Stop getNextStop(VehicleId vehicleId) {
@@ -99,23 +109,25 @@ public class TripProcessor {
             throw new IllegalStateException("TripRegister does not have GTFS data");
         }
 
-        Integer lastStopSequence = passedStops.getOrDefault(vehicleId, Collections.emptySortedSet()).last();
+        Integer lastStopSequence = currentStop.get(vehicleId);
         if (lastStopSequence == null) {
             return null;
         }
 
-        Optional<StopTime> nextStopTime = route.getOrDefault(vehicleId, Collections.emptySortedSet()).stream().filter(stopTime -> stopTime.getStopSequence() > lastStopSequence).findAny();
-        return nextStopTime.map(stopTime -> {
-            synchronized (TripProcessor.this) {
-                return gtfsIndex.stopsById.get(stopTime.getStopId());
+        Map.Entry<Integer, StopTime> nextStopTime = route.getOrDefault(vehicleId, Collections.emptyNavigableMap()).higherEntry(lastStopSequence);
+        if (nextStopTime != null) {
+            synchronized (this) {
+                return gtfsIndex.stopsById.get(nextStopTime.getValue().getStopId());
             }
-        }).orElse(null);
+        } else {
+            return null;
+        }
     }
 
     private boolean canRegisterForTrip(VehicleId vehicleId, ZonedDateTime vehicleTime) {
         return !registeredTrips.containsKey(vehicleId) //Vehicle is not currently registered to any trip
-            || passedStops.get(vehicleId).last().equals(route.get(vehicleId).last().getStopSequence()) //Vehicle has reached its final stop
-            || scheduledArrivalTimes.get(vehicleId).last().plus(maxTimeAfterScheduledArrival).isBefore(vehicleTime); //Vehicle has finished previous trip
+            || currentStop.get(vehicleId).equals(route.get(vehicleId).lastEntry().getValue().getStopSequence()) //Vehicle has reached its final stop
+            || scheduledArrivalTime.get(vehicleId).plus(maxTimeAfterScheduledArrival).isBefore(vehicleTime); //Vehicle has finished previous trip
     }
 
     /**
@@ -151,8 +163,9 @@ public class TripProcessor {
         //Remove previous registration
         registeredTrips.remove(vehicleId);
         route.remove(vehicleId);
-        scheduledArrivalTimes.remove(vehicleId);
-        passedStops.remove(vehicleId);
+        scheduledArrivalTime.remove(vehicleId);
+        currentStop.remove(vehicleId);
+        isAtCurrentStop.remove(vehicleId);
 
         //Cache distances to stops as most trips begin from same stops
         Map<Stop, Double> stopDistances = new HashMap<>();
@@ -206,15 +219,10 @@ public class TripProcessor {
             }
 
             registeredTrips.put(vehicleId, tripDescriptor);
-            route.put(vehicleId, gtfsIndexCopy.stopTimesByTripId.get(trip.getTripId()));
-            scheduledArrivalTimes.put(vehicleId, gtfsIndexCopy.stopTimesByTripId.get(trip.getTripId()).stream()
-                    .map(stopTime -> operatingDate.atStartOfDay(timezone).plusSeconds(stopTime.getArrivalTime()))
-                    .collect(Collectors.toCollection(TreeSet::new)));
-
-            TreeSet<Integer> stops = new TreeSet<>();
-            stops.add(firstStopTime.getStopSequence());
-
-            passedStops.put(vehicleId, stops);
+            route.put(vehicleId, gtfsIndexCopy.stopTimesByTripId.get(trip.getTripId()).stream().collect(Collectors.toMap(StopTime::getStopSequence, Function.identity(), (a, b) -> a, TreeMap::new)));
+            scheduledArrivalTime.put(vehicleId, operatingDate.atStartOfDay(timezone).plusSeconds(gtfsIndexCopy.stopTimesByTripId.get(trip.getTripId()).last().getArrivalTime()));
+            currentStop.put(vehicleId, firstStopTime.getStopSequence());
+            isAtCurrentStop.put(vehicleId, true);
 
             LOG.debug("Registered {} for trip {} / {} / {} / {}", vehicleId, tripDescriptor.routeId, tripDescriptor.departureDate, tripDescriptor.startTime, tripDescriptor.directionId);
         } else {
@@ -223,18 +231,21 @@ public class TripProcessor {
     }
 
     private void updateStopStatus(VehicleId vehicleId, LatLng position, GtfsIndex gtfsIndexCopy) {
-        SortedSet<Integer> vehiclePassedStops = passedStops.get(vehicleId);
-        SortedSet<StopTime> vehicleRoute = route.get(vehicleId);
+        Integer currentStopSequence = currentStop.get(vehicleId);
+        NavigableMap<Integer, StopTime> vehicleRoute = route.get(vehicleId);
         //If vehicle is not registered to a trip, there is no stop status to update
-        if (vehiclePassedStops != null && vehicleRoute != null) {
-            Integer maxPassedSequence = vehiclePassedStops.last();
-            Optional<StopTime> nextAfter = vehicleRoute.stream().filter(stopTime -> stopTime.getStopSequence() > maxPassedSequence).findFirst();
+        if (currentStopSequence != null && vehicleRoute != null) {
+            Stop current = gtfsIndexCopy.stopsById.get(vehicleRoute.get(currentStopSequence).getStopId());
+            isAtCurrentStop.put(vehicleId, current.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(current.getId(), defaultMaxDistanceFromStop));
 
-            if (nextAfter.isPresent()) {
-                Stop stop = gtfsIndexCopy.stopsById.get(nextAfter.get().getStopId());
+            StopTime nextAfter = vehicleRoute.higherEntry(currentStopSequence).getValue();
+
+            if (nextAfter != null) {
+                Stop stop = gtfsIndexCopy.stopsById.get(nextAfter.getStopId());
 
                 if (stop.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getId(), defaultMaxDistanceFromStop)) {
-                    vehiclePassedStops.add(nextAfter.get().getStopSequence());
+                    currentStop.put(vehicleId, nextAfter.getStopSequence());
+                    isAtCurrentStop.put(vehicleId, true);
                 }
             }
         }
