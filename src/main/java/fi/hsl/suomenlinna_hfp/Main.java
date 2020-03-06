@@ -40,9 +40,8 @@ public class Main {
         String publisherBroker = config.getString("publisher.broker");
 
         TripProcessor tripProcessor = new TripProcessor(timezone, suomenlinnaFerryRoutes, maxDistanceFromStop, defaultMaxDistanceFromStop,
-                Duration.of(4, ChronoUnit.MINUTES), //Allow registering for a trip up to 4 minutes before scheduled departure
-                Duration.of(5, ChronoUnit.MINUTES), //Allow registering for a trip up to 5 minutes after scheduled departure
-                Duration.of(15, ChronoUnit.MINUTES)); //Allow registering for next trip if the previous trip is not finished within 15 minutes of scheduled arrival to the final stop
+                Duration.of(5, ChronoUnit.MINUTES), //Allow registering for a trip up to 4 minutes before scheduled departure
+                3); //Allow registering for next trip if the previous trip is not finished within 3 * scheduled duration of the trip after registration
 
         VesselLocationProvider vesselLocationProvider = new MqttVesselLocationProvider(meriDigitrafficBroker, meriDigitrafficUser, meriDigitrafficPassword);
         GtfsProvider gtfsProvider = new HttpGtfsProvider(gtfsUrl, gtfsPollInterval.getSeconds(), TimeUnit.SECONDS);

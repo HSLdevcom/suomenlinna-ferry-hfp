@@ -159,13 +159,15 @@ public class SuomenlinnaHfpProducer {
                     int hdg = (int)Math.round(Math.round(vesselLocation.properties.heading) == 511 ? vesselLocation.properties.course : vesselLocation.properties.heading);
 
                     if (tripDescriptor != null) {
-                        Stop currentStop = tripProcessor.getCurrentStop(vehicleId);
-                        Stop nextStop = tripProcessor.getNextStop(vehicleId);
+                        NavigableMap<StopTime, Stop> currentAndNextStops = tripProcessor.getCurrentAndNextStops(vehicleId);
+
+                        Map.Entry<StopTime, Stop> currentStop = currentAndNextStops.firstEntry();
+                        Map.Entry<StopTime, Stop> nextStop = currentAndNextStops.higherEntry(currentAndNextStops.firstKey());
 
                         boolean isAtCurrentStop = tripProcessor.isAtCurrentStop(vehicleId);
 
-                        String nextStopId = isAtCurrentStop ? currentStop.getId() :
-                                nextStop != null ? nextStop.getId() : currentStop.getId();
+                        String nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
+                                nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
 
                         Topic topic = new Topic(Topic.HFP_V2_PREFIX, Topic.JourneyType.JOURNEY, Topic.TemporalType.ONGOING, Topic.EventType.VP,
                                 Topic.TransportMode.FERRY, vehicleId, tripDescriptor, nextStopId, 5,
@@ -174,7 +176,7 @@ public class SuomenlinnaHfpProducer {
                         Payload payload = new Payload(tripDescriptor.routeName, tripDescriptor.directionId, vehicleId.operatorId, vehicleId.vehicleId,
                                 tst, tsi, spd, hdg,
                                 vesselLocation.coordinates.getLatitude(), vesselLocation.coordinates.getLongitude(), null, null, null, null,
-                                tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", isAtCurrentStop ? currentStop.getId() : null,
+                                tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", isAtCurrentStop ? currentStop.getValue().getId() : null,
                                 tripDescriptor.routeId, 0, vesselMetadata != null ? vesselMetadata.name : null);
 
                         hfpPublisher.publish(topic, payload);

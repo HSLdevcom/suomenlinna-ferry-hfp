@@ -1,6 +1,7 @@
 package fi.hsl.suomenlinna_hfp;
 
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
+import fi.hsl.suomenlinna_hfp.gtfs.model.Route;
 import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
 import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
 import fi.hsl.suomenlinna_hfp.gtfs.model.Trip;
@@ -21,16 +22,19 @@ import java.util.stream.Collectors;
 public class TripProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(TripProcessor.class);
 
-    private Map<VehicleId, TripDescriptor> registeredTrips = new HashMap<>();
-    private Map<VehicleId, NavigableMap<Integer, StopTime>> route = new HashMap<>();
-    //Scheduled arrival times to the last stop of the trip
-    private Map<VehicleId, ZonedDateTime> scheduledArrivalTime = new HashMap<>();
+    private Map<VehicleId, TripAndRouteWithStopTimes> registeredTrips = new HashMap<>();
+    //Time when vehicle registered for the trip
+    private Map<VehicleId, ZonedDateTime> registrationTimes = new HashMap<>();
     //Highest stop sequence that the vehicle has reached
     private Map<VehicleId, Integer> currentStop = new HashMap<>();
+    //Whether the vehicle is at the current stop or not
     private Map<VehicleId, Boolean> isAtCurrentStop = new HashMap<>();
+    //Time when the next trip of the same pattern (pattern = set of trips having same route and direction) would start
+    private Map<VehicleId, ZonedDateTime> nextTripTime = new HashMap<>();
 
-    private volatile GtfsIndex gtfsIndex;
-    private volatile ServiceDates serviceDates;
+    private TripRegistrationCache tripRegistrationCache = new TripRegistrationCache(Duration.of(1, ChronoUnit.DAYS));
+
+    private volatile Map<Stop, NavigableMap<ZonedDateTime, TripAndRouteWithStopTimes>> tripsByStartStopAndTime;
 
     private final ZoneId timezone;
 
@@ -40,8 +44,8 @@ public class TripProcessor {
     private final double defaultMaxDistanceFromStop;
 
     private final Duration maxTimeBeforeDeparture;
-    private final Duration maxTimeAfterDeparture;
-    private final Duration maxTimeAfterScheduledArrival;
+
+    private final double maxDurationOfTrip;
 
     /**
      *
@@ -50,84 +54,101 @@ public class TripProcessor {
      * @param maxDistanceFromStop Maximum distances from stops, can be empty
      * @param defaultMaxDistanceFromStop Default maximum distance from stop
      * @param maxTimeBeforeDeparture Maximum time for when the vehicle can register for a trip before scheduled departure time
-     * @param maxTimeAfterDeparture Maximum time for when the vehicle can register for a trip after scheduled departure time
-     * @param maxTimeAfterScheduledArrival Maximum time after arrival to the last stop. If the vehicle has not finished its trip by this time, it can register for the next trip
+     * @param maxDurationOfTrip Maximum duration of the trip, as multiplier (e.g. 1 = scheduled running time, 2 = 2x scheduled running time). If the vehicle has not reached its final stop after max duration, it can register for a next trip
      */
-    public TripProcessor(ZoneId timezone, List<String> possibleRoutes, Map<String, Double> maxDistanceFromStop, double defaultMaxDistanceFromStop, Duration maxTimeBeforeDeparture, Duration maxTimeAfterDeparture, Duration maxTimeAfterScheduledArrival) {
+    public TripProcessor(ZoneId timezone, List<String> possibleRoutes, Map<String, Double> maxDistanceFromStop, double defaultMaxDistanceFromStop, Duration maxTimeBeforeDeparture, double maxDurationOfTrip) {
         this.timezone = timezone;
         this.possibleRoutes = possibleRoutes;
         this.maxDistanceFromStop = maxDistanceFromStop;
         this.defaultMaxDistanceFromStop = defaultMaxDistanceFromStop;
         this.maxTimeBeforeDeparture = maxTimeBeforeDeparture;
-        this.maxTimeAfterDeparture = maxTimeAfterDeparture;
-        this.maxTimeAfterScheduledArrival = maxTimeAfterScheduledArrival;
+        this.maxDurationOfTrip = maxDurationOfTrip;
     }
 
     public boolean hasGtfsData() {
         synchronized (this) {
-            return gtfsIndex != null && serviceDates != null;
+            return tripsByStartStopAndTime != null;
         }
     }
 
     public void updateGtfsData(GtfsIndex gtfsIndex, ServiceDates serviceDates) {
         synchronized (this) {
-            this.gtfsIndex = gtfsIndex;
-            this.serviceDates = serviceDates;
+            this.tripsByStartStopAndTime = gtfsIndex.tripsByRouteId.entrySet().stream()
+                    .filter(entry -> possibleRoutes.contains(entry.getKey()))
+                    .flatMap(entry -> entry.getValue().stream())
+                    .flatMap(trip -> {
+                        SortedSet<StopTime> stopTimes = gtfsIndex.stopTimesByTripId.get(trip.getTripId());
+
+                        Map<Stop, NavigableMap<ZonedDateTime, TripAndRouteWithStopTimes>> stopTimesByStartStopAndStartTime = new HashMap<>();
+
+                        serviceDates.getDatesForService(trip.getServiceId()).forEach(date -> {
+                            StopTime firstStopTime = stopTimes.first();
+                            stopTimesByStartStopAndStartTime.compute(gtfsIndex.stopsById.get(firstStopTime.getStopId()), (key, value) -> {
+                                if (value == null) {
+                                    value = new TreeMap<>();
+                                }
+
+                                ZonedDateTime startTime = date.atStartOfDay(timezone).plus(stopTimes.first().getDepartureTime(), ChronoUnit.SECONDS);
+                                value.put(startTime, new TripAndRouteWithStopTimes(trip,
+                                        gtfsIndex.routesById.get(trip.getRouteId()),
+                                        date,
+                                        stopTimes,
+                                        stopTimes.stream().map(stopTime -> gtfsIndex.stopsById.get(stopTime.getStopId())).collect(Collectors.toSet())));
+                                return value;
+                            });
+                        });
+
+                        return stopTimesByStartStopAndStartTime.entrySet().stream();
+                    })
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {
+                       a.putAll(b);
+                       return a;
+                    }));
         }
     }
 
     public TripDescriptor getRegisteredTrip(VehicleId vehicleId) {
-        return registeredTrips.get(vehicleId);
+        TripAndRouteWithStopTimes trip = registeredTrips.get(vehicleId);
+        return trip != null ? trip.getTripDescriptor() : null;
     }
 
     public boolean isAtCurrentStop(VehicleId vehicleId) {
         return isAtCurrentStop.get(vehicleId);
     }
 
-    public Stop getCurrentStop(VehicleId vehicleId) {
-        if (!hasGtfsData()) {
-            throw new IllegalStateException("TripRegister does not have GTFS data");
-        }
-
-        Integer lastStopSequence = currentStop.get(vehicleId);
-        if (lastStopSequence == null) {
-            return null;
-        }
-
-        StopTime lastStopTime = route.getOrDefault(vehicleId, Collections.emptyNavigableMap()).get(lastStopSequence);
-        if (lastStopTime != null) {
-            synchronized (this) {
-                return gtfsIndex.stopsById.get(lastStopTime.getStopId());
-            }
-        } else {
-            return null;
-        }
+    public NavigableMap<StopTime, Stop> getCurrentAndNextStops(VehicleId vehicleId) {
+        TripAndRouteWithStopTimes trip = registeredTrips.get(vehicleId);
+        return trip.stopTimes.tailMap(currentStop.get(vehicleId)).values().stream()
+                .collect(Collectors.toMap(
+                        Function.identity(),
+                        stopTime -> trip.stops.get(stopTime.getStopId()),
+                        (a, b) -> a,
+                        () -> new TreeMap<>(Comparator.comparingInt(StopTime::getStopSequence))
+                ));
     }
 
-    public Stop getNextStop(VehicleId vehicleId) {
-        if (!hasGtfsData()) {
-            throw new IllegalStateException("TripRegister does not have GTFS data");
-        }
+    private Duration getMaxTripDuration(VehicleId vehicleId) {
+        StopTime firstStopTime = registeredTrips.get(vehicleId).stopTimes.firstEntry().getValue();
+        StopTime lastStopTime = registeredTrips.get(vehicleId).stopTimes.lastEntry().getValue();
 
-        Integer lastStopSequence = currentStop.get(vehicleId);
-        if (lastStopSequence == null) {
-            return null;
-        }
-
-        Map.Entry<Integer, StopTime> nextStopTime = route.getOrDefault(vehicleId, Collections.emptyNavigableMap()).higherEntry(lastStopSequence);
-        if (nextStopTime != null) {
-            synchronized (this) {
-                return gtfsIndex.stopsById.get(nextStopTime.getValue().getStopId());
-            }
-        } else {
-            return null;
-        }
+        return Duration.of(Math.round(maxDurationOfTrip * (lastStopTime.getArrivalTime() - firstStopTime.getDepartureTime())), ChronoUnit.SECONDS);
     }
 
     private boolean canRegisterForTrip(VehicleId vehicleId, ZonedDateTime vehicleTime) {
-        return !registeredTrips.containsKey(vehicleId) //Vehicle is not currently registered to any trip
-            || currentStop.get(vehicleId).equals(route.get(vehicleId).lastEntry().getValue().getStopSequence()) //Vehicle has reached its final stop
-            || scheduledArrivalTime.get(vehicleId).plus(maxTimeAfterScheduledArrival).isBefore(vehicleTime); //Vehicle has finished previous trip
+        //Vehicle is not currently registered to any trip
+        if (!registeredTrips.containsKey(vehicleId)) {
+            return true;
+        } else {
+            TripAndRouteWithStopTimes trip = registeredTrips.get(vehicleId);
+
+            return
+                    //Vehicle has reached its final stop
+                    currentStop.get(vehicleId).equals(trip.stopTimes.lastKey())
+                    //Vehicle has not finished the previous trip in the specified time limit
+                    || registrationTimes.get(vehicleId).plus(getMaxTripDuration(vehicleId)).isBefore(vehicleTime)
+                    //Vehicle has not left the first stop and the next possible trip would start soon
+                    || (isAtCurrentStop.get(vehicleId) && currentStop.get(vehicleId).equals(trip.stopTimes.firstKey()) && nextTripTime.get(vehicleId) != null && vehicleTime.until(nextTripTime.get(vehicleId), ChronoUnit.SECONDS) < maxTimeBeforeDeparture.getSeconds());
+        }
     }
 
     /**
@@ -143,111 +164,149 @@ public class TripProcessor {
 
         ZonedDateTime time = Instant.ofEpochMilli(timestamp).atZone(ZoneId.of("UTC"));
 
-        GtfsIndex gtfsIndex;
-        ServiceDates serviceDates;
+        Map<Stop, NavigableMap<ZonedDateTime, TripAndRouteWithStopTimes>> tripsByStartStopAndTime;
 
-        //Create copy of GTFS data
+        //Create copy of timetable data
         synchronized (this) {
-            gtfsIndex = this.gtfsIndex;
-            serviceDates = this.serviceDates;
+            tripsByStartStopAndTime = this.tripsByStartStopAndTime;
         }
 
         if (canRegisterForTrip(vehicleId, time)) {
-            registerForTrip(vehicleId, position, time, gtfsIndex, serviceDates);
+            registerForTrip(vehicleId, position, time, tripsByStartStopAndTime);
         } else {
-            updateStopStatus(vehicleId, position, gtfsIndex);
+            updateStopStatus(vehicleId, position);
         }
     }
 
-    private void registerForTrip(VehicleId vehicleId, LatLng position, ZonedDateTime time, GtfsIndex gtfsIndexCopy, ServiceDates serviceDatesCopy) {
+    private void registerForTrip(VehicleId vehicleId, LatLng position, ZonedDateTime time, Map<Stop, NavigableMap<ZonedDateTime, TripAndRouteWithStopTimes>> tripsByStartStopAndTime) {
         //Remove previous registration
         registeredTrips.remove(vehicleId);
-        route.remove(vehicleId);
-        scheduledArrivalTime.remove(vehicleId);
+        registrationTimes.remove(vehicleId);
         currentStop.remove(vehicleId);
         isAtCurrentStop.remove(vehicleId);
 
-        //Cache distances to stops as most trips begin from same stops
-        Map<Stop, Double> stopDistances = new HashMap<>();
-
         //Used to find first possible trip
-        SortedMap<ZonedDateTime, StopTime> tripStartTimes = new TreeMap<>();
-        Map<StopTime, LocalDate> operatingDates = new HashMap<>();
+        NavigableMap<ZonedDateTime, TripAndRouteWithStopTimes> tripsFromStop = null;
 
         //Go through all possible trips
-        for (Trip trip : possibleRoutes.stream().map(gtfsIndexCopy.tripsByRouteId::get).flatMap(List::stream).collect(Collectors.toList())) {
-            StopTime firstStopTime = gtfsIndexCopy.stopTimesByTripId.get(trip.getTripId()).first();
-
-            Stop firstStop = gtfsIndexCopy.stopsById.get(firstStopTime.getStopId());
-
-            if (stopDistances.computeIfAbsent(firstStop, stop -> stop.getCoordinates().distanceTo(position)) < maxDistanceFromStop.getOrDefault(firstStop.getId(), defaultMaxDistanceFromStop)) {
-                //If the vehicle is near the first stop of the trip, find possible start times for the trip
-                for (LocalDate operatingDate : serviceDatesCopy.getDatesForService(trip.getServiceId())) {
-                    ZonedDateTime startTime = operatingDate.atStartOfDay(timezone).plusSeconds(firstStopTime.getDepartureTime());
-
-                    if (startTime.until(time, ChronoUnit.SECONDS) < maxTimeAfterDeparture.getSeconds()) {
-                        tripStartTimes.put(startTime, firstStopTime);
-                        operatingDates.put(firstStopTime, operatingDate);
-
-                        break;
-                    }
-                }
+        for (Stop stop : tripsByStartStopAndTime.keySet()) {
+            if (stop.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getId(), defaultMaxDistanceFromStop)) {
+                tripsFromStop = tripsByStartStopAndTime.get(stop);
+                break;
             }
         }
 
-        if (!tripStartTimes.isEmpty()) {
-            ZonedDateTime tripStartTime = tripStartTimes.firstKey();
+        //If the vehicle is near the first stop of a trip
+        if (tripsFromStop != null) {
+            //Trip that would have started before current time
+            Map.Entry<ZonedDateTime, TripAndRouteWithStopTimes> earlierTrip = tripsFromStop.lowerEntry(time);
 
-            StopTime firstStopTime = tripStartTimes.get(tripStartTime);
-            String startTime = HfpUtils.formatStartTime(firstStopTime.getDepartureTime());
-            LocalDate operatingDate = operatingDates.get(firstStopTime);
+            //Trip that would start after current time
+            Map.Entry<ZonedDateTime, TripAndRouteWithStopTimes> nextTrip = tripsFromStop.higherEntry(time);
 
-            Trip trip = gtfsIndexCopy.tripsById.get(firstStopTime.getTripId());
+            if (nextTrip == null) {
+                LOG.info("GTFS schedule has no more trips to register for");
+                return;
+            }
 
-            TripDescriptor tripDescriptor =  new TripDescriptor(trip.getRouteId(), gtfsIndexCopy.routesById.get(trip.getRouteId()).getShortName(), operatingDate.toString(), startTime, String.valueOf(trip.getDirectionId() + 1), trip.getHeadsign());
+            if (earlierTrip != null) {
+                TripDescriptor earlierTripDescriptor = earlierTrip.getValue().getTripDescriptor();
+                if (!tripRegistrationCache.hasTripBeenRegistered(earlierTripDescriptor)
+                        /*If no trip has been registered for the pattern previously (i.e. the application has just started), we assume that the vehicle is running the trip
+                            that starts after current time
+                         */
+                        && tripRegistrationCache.hasAnyTripBeenRegisteredForPattern(earlierTripDescriptor)) {
+                    long secondsAfterStartTime = earlierTrip.getKey().until(time, ChronoUnit.SECONDS);
+                    if (secondsAfterStartTime < earlierTrip.getKey().until(nextTrip.getKey(), ChronoUnit.SECONDS) - maxTimeBeforeDeparture.get(ChronoUnit.SECONDS)) {
+                        LOG.debug("Could not register {} for trip {} / {} / {} / {} that started {} seconds ago", vehicleId, earlierTripDescriptor.routeId, earlierTripDescriptor.departureDate, earlierTripDescriptor.startTime, earlierTripDescriptor.directionId, secondsAfterStartTime);
+                    } else {
+                        tripRegistrationCache.addRegistration(earlierTripDescriptor);
+                        registeredTrips.put(vehicleId, earlierTrip.getValue());
+                        registrationTimes.put(vehicleId, time);
+                        currentStop.put(vehicleId, earlierTrip.getValue().stopTimes.firstKey());
+                        isAtCurrentStop.put(vehicleId, true);
+                        nextTripTime.put(vehicleId, nextTrip.getKey());
 
-            long secondsUntilStartTime = time.until(tripStartTime, ChronoUnit.SECONDS);
+                        return;
+                    }
+                }
+            }
+
+            //Earlier trip was already taken or it was too much in the past, let's try the next one
+            TripDescriptor nextTripDescriptor = nextTrip.getValue().getTripDescriptor();
+
+            long secondsUntilStartTime = time.until(nextTrip.getKey(), ChronoUnit.SECONDS);
             if (secondsUntilStartTime > maxTimeBeforeDeparture.get(ChronoUnit.SECONDS)) {
-                LOG.debug("Could not register {} for trip {} / {} / {} / {} that starts in {} seconds", vehicleId, tripDescriptor.routeId, tripDescriptor.departureDate, tripDescriptor.startTime, tripDescriptor.directionId, secondsUntilStartTime);
+                LOG.debug("Could not register {} for trip {} / {} / {} / {} that starts in {} seconds", vehicleId, nextTripDescriptor.routeId, nextTripDescriptor.departureDate, nextTripDescriptor.startTime, nextTripDescriptor.directionId, secondsUntilStartTime);
                 return;
             }
 
-            if (registeredTrips.containsValue(tripDescriptor)) {
+            if (tripRegistrationCache.hasTripBeenRegistered(nextTripDescriptor)) {
                 //Some other vehicle was already registered for the same trip
-                LOG.info("Could not register {} for trip {} / {} / {} / {}, as some other vehicle was already registered for it", vehicleId, tripDescriptor.routeId, tripDescriptor.departureDate, tripDescriptor.startTime, tripDescriptor.directionId);
+                LOG.info("Could not register {} for trip {} / {} / {} / {}, as some other vehicle was already registered for it", vehicleId, nextTripDescriptor.routeId, nextTripDescriptor.departureDate, nextTripDescriptor.startTime, nextTripDescriptor.directionId);
                 return;
             }
 
-            registeredTrips.put(vehicleId, tripDescriptor);
-            route.put(vehicleId, gtfsIndexCopy.stopTimesByTripId.get(trip.getTripId()).stream().collect(Collectors.toMap(StopTime::getStopSequence, Function.identity(), (a, b) -> a, TreeMap::new)));
-            scheduledArrivalTime.put(vehicleId, operatingDate.atStartOfDay(timezone).plusSeconds(gtfsIndexCopy.stopTimesByTripId.get(trip.getTripId()).last().getArrivalTime()));
-            currentStop.put(vehicleId, firstStopTime.getStopSequence());
+            tripRegistrationCache.addRegistration(nextTripDescriptor);
+            registeredTrips.put(vehicleId, nextTrip.getValue());
+            registrationTimes.put(vehicleId, time);
+            currentStop.put(vehicleId, nextTrip.getValue().stopTimes.firstKey());
             isAtCurrentStop.put(vehicleId, true);
+            nextTripTime.put(vehicleId, tripsFromStop.higherKey(nextTrip.getKey()));
 
-            LOG.debug("Registered {} for trip {} / {} / {} / {}", vehicleId, tripDescriptor.routeId, tripDescriptor.departureDate, tripDescriptor.startTime, tripDescriptor.directionId);
+            LOG.debug("Registered {} for trip {} / {} / {} / {}", vehicleId, nextTripDescriptor.routeId, nextTripDescriptor.departureDate, nextTripDescriptor.startTime, nextTripDescriptor.directionId);
         } else {
             LOG.debug("No trip found for {}, assuming that it is on a deadrun", vehicleId);
         }
     }
 
-    private void updateStopStatus(VehicleId vehicleId, LatLng position, GtfsIndex gtfsIndexCopy) {
+    private void updateStopStatus(VehicleId vehicleId, LatLng position) {
+        if (!registeredTrips.containsKey(vehicleId)) {
+            //If vehicle is not registered to a trip, there is no stop status to update
+            return;
+        }
+
         Integer currentStopSequence = currentStop.get(vehicleId);
-        NavigableMap<Integer, StopTime> vehicleRoute = route.get(vehicleId);
-        //If vehicle is not registered to a trip, there is no stop status to update
-        if (currentStopSequence != null && vehicleRoute != null) {
-            Stop current = gtfsIndexCopy.stopsById.get(vehicleRoute.get(currentStopSequence).getStopId());
-            isAtCurrentStop.put(vehicleId, current.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(current.getId(), defaultMaxDistanceFromStop));
+        NavigableMap<Integer, StopTime> vehicleRoute = registeredTrips.get(vehicleId).stopTimes;
+        Map<String, Stop> stops = registeredTrips.get(vehicleId).stops;
 
-            StopTime nextAfter = vehicleRoute.higherEntry(currentStopSequence).getValue();
+        Stop current = stops.get(vehicleRoute.get(currentStopSequence).getStopId());
+        isAtCurrentStop.put(vehicleId, current.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(current.getId(), defaultMaxDistanceFromStop));
 
-            if (nextAfter != null) {
-                Stop stop = gtfsIndexCopy.stopsById.get(nextAfter.getStopId());
+        StopTime nextAfter = vehicleRoute.higherEntry(currentStopSequence).getValue();
 
-                if (stop.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getId(), defaultMaxDistanceFromStop)) {
-                    currentStop.put(vehicleId, nextAfter.getStopSequence());
-                    isAtCurrentStop.put(vehicleId, true);
-                }
+        if (nextAfter != null) {
+            Stop stop = stops.get(nextAfter.getStopId());
+
+            if (stop.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getId(), defaultMaxDistanceFromStop)) {
+                currentStop.put(vehicleId, nextAfter.getStopSequence());
+                isAtCurrentStop.put(vehicleId, true);
             }
+        }
+    }
+
+    private static class TripAndRouteWithStopTimes {
+        private final Trip trip;
+        private final Route route;
+        private final LocalDate operatingDate;
+        private final NavigableMap<Integer, StopTime> stopTimes;
+        private final Map<String, Stop> stops;
+
+        public TripAndRouteWithStopTimes(Trip trip, Route route, LocalDate operatingDate, Set<StopTime> stopTimes, Set<Stop> stops) {
+            this.trip = trip;
+            this.route = route;
+            this.operatingDate = operatingDate;
+            this.stopTimes = stopTimes.stream().collect(Collectors.toMap(StopTime::getStopSequence, Function.identity(), (a, b) -> a, TreeMap::new));
+            this.stops = stops.stream().collect(Collectors.toMap(Stop::getId, Function.identity()));
+        }
+
+        public TripDescriptor getTripDescriptor() {
+            return new TripDescriptor(route.getId(),
+                    route.getShortName(),
+                    operatingDate.toString(),
+                    HfpUtils.formatStartTime(stopTimes.firstEntry().getValue().getDepartureTime()),
+                    String.valueOf(trip.getDirectionId() + 1),
+                    trip.getHeadsign());
         }
     }
 }
