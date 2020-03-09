@@ -40,7 +40,7 @@ public class Main {
         String publisherBroker = config.getString("publisher.broker");
 
         TripProcessor tripProcessor = new TripProcessor(timezone, suomenlinnaFerryRoutes, maxDistanceFromStop, defaultMaxDistanceFromStop,
-                Duration.of(5, ChronoUnit.MINUTES), //Allow registering for a trip up to 4 minutes before scheduled departure
+                Duration.of(5, ChronoUnit.MINUTES).plusSeconds(30), //Allow registering for a trip up to 5.5 minutes before scheduled departure
                 3); //Allow registering for next trip if the previous trip is not finished within 3 * scheduled duration of the trip after registration
 
         VesselLocationProvider vesselLocationProvider = new MqttVesselLocationProvider(meriDigitrafficBroker, meriDigitrafficUser, meriDigitrafficPassword);
