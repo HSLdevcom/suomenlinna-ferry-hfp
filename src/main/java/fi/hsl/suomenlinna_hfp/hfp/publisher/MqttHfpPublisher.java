@@ -22,6 +22,7 @@ public class MqttHfpPublisher implements HfpPublisher {
     private final Gson gson = new GsonBuilder().serializeNulls().create();
 
     private final String brokerUri;
+    private final int maxReconnects;
 
     private MqttAsyncClient mqttAsyncClient;
 
@@ -30,9 +31,11 @@ public class MqttHfpPublisher implements HfpPublisher {
     /**
      *
      * @param brokerUri
+     * @param maxReconnects Maximum amount of reconnect attempts, -1 if unlimited
      */
-    public MqttHfpPublisher(String brokerUri) {
+    public MqttHfpPublisher(String brokerUri, int maxReconnects) {
         this.brokerUri = brokerUri;
+        this.maxReconnects = maxReconnects;
     }
 
     @Override
@@ -58,8 +61,8 @@ public class MqttHfpPublisher implements HfpPublisher {
             public void connectionLost(Throwable cause) {
                 LOG.warn("Connection lost to {}, attempting to reconnect...", brokerUri, cause);
 
-                if (++connectionLostCount > 5) {
-                    LOG.error("Connection lost to {} more than 5 times, aborting..", brokerUri);
+                if (++connectionLostCount > maxReconnects && maxReconnects != -1) {
+                    LOG.error("Connection lost to {} more than {} times, aborting..", brokerUri, maxReconnects);
                     onError.accept(new IOException("Connection lost to "+brokerUri));
                     try {
                         mqttAsyncClient.disconnectForcibly(0, 1000);

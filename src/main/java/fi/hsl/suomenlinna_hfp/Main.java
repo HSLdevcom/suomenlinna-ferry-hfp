@@ -38,6 +38,7 @@ public class Main {
         Duration gtfsPollInterval = config.getDuration("gtfs.pollInterval");
 
         String publisherBroker = config.getString("publisher.broker");
+        int publisherMaxReconnects = config.getInt("publisher.maxReconnects");
 
         TripProcessor tripProcessor = new TripProcessor(timezone, suomenlinnaFerryRoutes, maxDistanceFromStop, defaultMaxDistanceFromStop,
                 Duration.of(5, ChronoUnit.MINUTES).plusSeconds(30), //Allow registering for a trip up to 5.5 minutes before scheduled departure
@@ -45,7 +46,7 @@ public class Main {
 
         VesselLocationProvider vesselLocationProvider = new MqttVesselLocationProvider(meriDigitrafficBroker, meriDigitrafficUser, meriDigitrafficPassword);
         GtfsProvider gtfsProvider = new HttpGtfsProvider(gtfsUrl, gtfsPollInterval.getSeconds(), TimeUnit.SECONDS);
-        MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker);
+        MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker, publisherMaxReconnects);
 
         new SuomenlinnaHfpProducer(suomenlinnaFerryRoutes, suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
     }
