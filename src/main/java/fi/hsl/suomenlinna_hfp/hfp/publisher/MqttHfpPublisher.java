@@ -39,6 +39,11 @@ public class MqttHfpPublisher implements HfpPublisher {
     public void connect(Runnable onSuccess, Consumer<Throwable> onError) throws MqttException {
         mqttAsyncClient = new MqttAsyncClient(brokerUri, MqttClient.generateClientId(), new MemoryPersistence());
 
+        DisconnectedBufferOptions bufferOptions = new DisconnectedBufferOptions();
+        bufferOptions.setBufferEnabled(true);
+        bufferOptions.setDeleteOldestMessages(true);
+        mqttAsyncClient.setBufferOpts(bufferOptions);
+
         MqttConnectOptions connectOptions = new MqttConnectOptions();
         connectOptions.setCleanSession(false);
         connectOptions.setAutomaticReconnect(true);
