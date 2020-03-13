@@ -44,6 +44,7 @@ public class MqttHfpPublisher implements HfpPublisher {
 
         DisconnectedBufferOptions bufferOptions = new DisconnectedBufferOptions();
         bufferOptions.setBufferEnabled(true);
+        bufferOptions.setBufferSize(50);
         bufferOptions.setDeleteOldestMessages(true);
         mqttAsyncClient.setBufferOpts(bufferOptions);
 
