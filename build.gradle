@@ -1,12 +1,17 @@
 plugins {
     id 'com.github.johnrengelman.shadow' version '5.2.0'
     id 'java'
+    id 'application'
 }
 
 group 'fi.hsl'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 1.8
+
+application {
+    mainClassName = 'fi.hsl.suomenlinna_hfp.Main'
+}
 
 jar {
     manifest {
