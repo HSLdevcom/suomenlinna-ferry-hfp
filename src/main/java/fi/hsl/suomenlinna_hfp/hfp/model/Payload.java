@@ -1,11 +1,15 @@
 package fi.hsl.suomenlinna_hfp.hfp.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+
 public class Payload {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String desi;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String dir;
     private final Integer oper;
     private final Integer veh;
@@ -20,14 +24,22 @@ public class Payload {
     private final Integer dl;
     private final Double odo;
     private final Integer drst;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String oday;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final Integer jrn;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final Integer line;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String start;
     private final String loc;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String stop;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String route;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final Integer occu;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String label;
 
     public Payload(String desi, String dir, Integer oper, Integer veh, String tst, Integer tsi, Double spd, Integer hdg, Double lat, Double lon, Double acc, Integer dl, Double odo, Integer drst, String oday, Integer jrn, Integer line, String start, String loc, String stop, String route, Integer occu, String label) {
