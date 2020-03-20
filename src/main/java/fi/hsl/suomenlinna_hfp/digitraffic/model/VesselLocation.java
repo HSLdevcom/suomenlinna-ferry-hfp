@@ -1,12 +1,11 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.model;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
 
 import java.util.Objects;
+import java.util.Properties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class VesselLocation {
@@ -47,7 +46,7 @@ public class VesselLocation {
                 '}';
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonIgnoreProperties(value = { "timestamp" }, ignoreUnknown = true)
     public static class Properties {
         //Speed over ground in knots
         public final Double speed;
