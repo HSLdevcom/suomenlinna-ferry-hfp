@@ -1,9 +1,12 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.model;
 
-import com.google.gson.annotations.SerializedName;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class VesselMetadata {
     public final Integer mmsi;
     public final String name;
@@ -12,7 +15,6 @@ public class VesselMetadata {
     public final Integer referencePointB;
     public final Integer referencePointC;
     public final Integer referencePointD;
-    @SerializedName("posType")
     public final Integer positionType;
     public final Integer draught;
     public final Integer imo;
@@ -21,7 +23,21 @@ public class VesselMetadata {
     public final Long timestamp;
     public final String destination;
 
-    public VesselMetadata(Integer mmsi, String name, Integer shipType, Integer referencePointA, Integer referencePointB, Integer referencePointC, Integer referencePointD, Integer positionType, Integer draught, Integer imo, String callSign, Long eta, Long timestamp, String destination) {
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public VesselMetadata(@JsonProperty("mmsi") Integer mmsi,
+                          @JsonProperty("name") String name,
+                          @JsonProperty("shipType") Integer shipType,
+                          @JsonProperty("referencePointA") Integer referencePointA,
+                          @JsonProperty("referencePointB") Integer referencePointB,
+                          @JsonProperty("referencePointC") Integer referencePointC,
+                          @JsonProperty("referencePointD") Integer referencePointD,
+                          @JsonProperty("posType") Integer positionType,
+                          @JsonProperty("draught") Integer draught,
+                          @JsonProperty("imo") Integer imo,
+                          @JsonProperty("callSign") String callSign,
+                          @JsonProperty("eta") Long eta,
+                          @JsonProperty("timestamp") Long timestamp,
+                          @JsonProperty("destination") String destination) {
         this.mmsi = mmsi;
         this.name = name;
         this.shipType = shipType;

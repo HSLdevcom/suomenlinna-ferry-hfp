@@ -6,7 +6,7 @@
                 <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
                 <appendLineSeparator>true</appendLineSeparator>
                 <includeLevel>true</includeLevel>
-                <jsonFormatter class="fi.hsl.suomenlinna_hfp.GsonLogFormatter">
+                <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
                     <prettyPrint>false</prettyPrint>
                 </jsonFormatter>
             </layout>

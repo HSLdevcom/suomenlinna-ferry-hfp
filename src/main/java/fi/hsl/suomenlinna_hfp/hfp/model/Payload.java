@@ -1,6 +1,6 @@
 package fi.hsl.suomenlinna_hfp.hfp.model;
 
-import com.google.gson.annotations.SerializedName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -14,7 +14,7 @@ public class Payload {
     private final Double spd;
     private final Integer hdg;
     private final Double lat;
-    @SerializedName("long")
+    @JsonProperty("long")
     private final Double lon;
     private final Double acc;
     private final Integer dl;

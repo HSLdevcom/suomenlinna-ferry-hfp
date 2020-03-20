@@ -1,7 +1,9 @@
 package fi.hsl.suomenlinna_hfp.hfp.publisher;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.hsl.suomenlinna_hfp.hfp.model.Payload;
 import fi.hsl.suomenlinna_hfp.hfp.model.Topic;
 import org.eclipse.paho.client.mqttv3.*;
@@ -14,12 +16,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.function.Consumer;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 public class MqttHfpPublisher implements HfpPublisher {
     private static final Logger LOG = LoggerFactory.getLogger(MqttHfpPublisher.class);
 
-    private final Gson gson = new GsonBuilder().serializeNulls().create();
+    private final ObjectMapper objectMapper = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
     private final String brokerUri;
     private final int maxReconnects;
@@ -111,9 +111,13 @@ public class MqttHfpPublisher implements HfpPublisher {
 
     @Override
     public void publish(Topic topic, Payload payload) throws MqttException {
-        MqttMessage mqttMessage = new MqttMessage(gson.toJson(Collections.singletonMap(topic.eventType.name(), payload)).getBytes(UTF_8));
-        mqttMessage.setQos(1);
+        try {
+            MqttMessage mqttMessage = new MqttMessage(objectMapper.writeValueAsBytes(Collections.singletonMap(topic.eventType.name(), payload)));
+            mqttMessage.setQos(1);
 
-        mqttAsyncClient.publish(topic.toString(), mqttMessage);
+            mqttAsyncClient.publish(topic.toString(), mqttMessage);
+        } catch (JsonProcessingException e) {
+            LOG.warn("Failed to serialize HFP message as JSON", e);
+        }
     }
 }

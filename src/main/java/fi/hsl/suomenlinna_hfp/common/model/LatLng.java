@@ -1,18 +1,19 @@
 package fi.hsl.suomenlinna_hfp.common.model;
 
-import com.google.gson.*;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
-import java.lang.reflect.Type;
+import java.io.IOException;
 import java.util.Objects;
 
 public class LatLng {
     private static final int EARTH_RADIUS_IN_METERS = 6371 * 1000;
 
-    private double latitude;
-    private double longitude;
-
-    public LatLng() {
-    }
+    private final double latitude;
+    private final double longitude;
 
     public LatLng(double latitude, double longitude) {
         this.latitude = latitude;
@@ -23,16 +24,8 @@ public class LatLng {
         return latitude;
     }
 
-    public void setLatitude(double latitude) {
-        this.latitude = latitude;
-    }
-
     public double getLongitude() {
         return longitude;
-    }
-
-    public void setLongitude(double longitude) {
-        this.longitude = longitude;
     }
 
     /**
@@ -71,11 +64,21 @@ public class LatLng {
         return "(" + latitude + ", " + longitude + ")";
     }
 
-    public static class LatLngDeserializer implements JsonDeserializer<LatLng> {
+    public static class LatLngDeserializer extends StdDeserializer<LatLng> {
+        public LatLngDeserializer() {
+            this(LatLng.class);
+        }
+
+        protected LatLngDeserializer(Class<?> vc) {
+            super(vc);
+        }
+
         @Override
-        public LatLng deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-            JsonArray coordinates = json.getAsJsonObject().get("coordinates").getAsJsonArray();
-            return new LatLng(coordinates.get(1).getAsDouble(), coordinates.get(0).getAsDouble());
+        public LatLng deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException {
+            JsonNode jsonNode = jsonParser.getCodec().readTree(jsonParser);
+            ArrayNode coordinates = ((ArrayNode)jsonNode.get("coordinates"));
+
+            return new LatLng(coordinates.get(1).asDouble(), coordinates.get(0).asDouble());
         }
     }
 

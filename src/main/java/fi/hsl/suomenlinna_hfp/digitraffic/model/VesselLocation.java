@@ -1,17 +1,23 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.model;
 
-import com.google.gson.annotations.SerializedName;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
 
 import java.util.Objects;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class VesselLocation {
     public final Integer mmsi;
-    @SerializedName("geometry")
     public final LatLng coordinates;
     public final Properties properties;
 
-    public VesselLocation(Integer mmsi, LatLng coordinates, Properties properties) {
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public VesselLocation(@JsonProperty("mmsi") Integer mmsi,
+                          @JsonProperty("geometry") @JsonDeserialize(using = LatLng.LatLngDeserializer.class) LatLng coordinates,
+                          @JsonProperty("properties") Properties properties) {
         this.mmsi = mmsi;
         this.coordinates = coordinates;
         this.properties = properties;
@@ -41,29 +47,32 @@ public class VesselLocation {
                 '}';
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Properties {
         //Speed over ground in knots
-        @SerializedName("sog")
         public final Double speed;
         //Course over ground in degrees from north
-        @SerializedName("cog")
         public final Double course;
         //Status
-        @SerializedName("navStat")
         public final Integer status;
         //Rate of turn
-        @SerializedName("rot")
         public final Double rateOfTurn;
-        @SerializedName("posAcc")
         public final Boolean positionAccurate;
         public final Boolean raim;
         //Heading of the vessel
         public final Double heading;
         //Timestamp in milliseconds
-        @SerializedName("timestampExternal")
         public final Long timestamp;
 
-        public Properties(Double speed, Double course, Integer status, Double rateOfTurn, Boolean positionAccurate, Boolean raim, Double heading, Long timestamp) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public Properties(@JsonProperty("sog") Double speed,
+                          @JsonProperty("cog") Double course,
+                          @JsonProperty("navStat") Integer status,
+                          @JsonProperty("rot") Double rateOfTurn,
+                          @JsonProperty("posAcc") Boolean positionAccurate,
+                          @JsonProperty("raim") Boolean raim,
+                          @JsonProperty("heading") Double heading,
+                          @JsonProperty("timestampExternal") Long timestamp) {
             this.speed = speed;
             this.course = course;
             this.status = status;

@@ -1,14 +1,13 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.provider;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import fi.hsl.suomenlinna_hfp.common.model.LatLng;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselLocation;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselMetadata;
 import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Consumer;
@@ -16,7 +15,7 @@ import java.util.function.Consumer;
 public class MqttVesselLocationProvider implements VesselLocationProvider {
     private static final Logger LOG = LoggerFactory.getLogger(MqttVesselLocationProvider.class);
 
-    private final Gson gson = new GsonBuilder().registerTypeAdapter(LatLng.class, new LatLng.LatLngDeserializer()).create();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final String brokerUri;
     private final String username;
@@ -77,10 +76,18 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
             @Override
             public void messageArrived(String topic, MqttMessage message) {
                 if (topic.contains("metadata")) {
-                    metadataConsumer.accept(gson.fromJson(message.toString(), VesselMetadata.class));
+                    try {
+                        metadataConsumer.accept(objectMapper.readValue(message.getPayload(), VesselMetadata.class));
+                    } catch (IOException e) {
+                        LOG.warn("Failed to parse vessel metadata", e);
+                    }
                 }
                 if (topic.contains("locations")) {
-                    locationConsumer.accept(gson.fromJson(message.toString(), VesselLocation.class));
+                    try {
+                        locationConsumer.accept(objectMapper.readValue(message.getPayload(), VesselLocation.class));
+                    } catch (IOException e) {
+                        LOG.warn("Failed to parse vessel location", e);
+                    }
                 }
             }
 
