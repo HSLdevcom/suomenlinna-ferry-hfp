@@ -82,6 +82,9 @@ public class SuomenlinnaHfpProducer {
                 try {
                     vesselLocationProvider.stop();
                 } catch (Throwable e) {}
+                try {
+                    hfpPublisher.disconnect();
+                } catch (Throwable e) {}
                 break;
             }
 
