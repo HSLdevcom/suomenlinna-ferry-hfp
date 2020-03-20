@@ -7,7 +7,7 @@ plugins {
 group 'fi.hsl'
 version '1.0-SNAPSHOT'
 
-sourceCompatibility = 1.8
+sourceCompatibility = 11
 
 application {
     mainClassName = 'fi.hsl.suomenlinna_hfp.Main'
