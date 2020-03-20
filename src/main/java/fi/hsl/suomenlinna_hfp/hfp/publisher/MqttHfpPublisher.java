@@ -98,6 +98,13 @@ public class MqttHfpPublisher implements HfpPublisher {
     }
 
     @Override
+    public void disconnect() throws Throwable {
+        if (mqttAsyncClient != null) {
+            mqttAsyncClient.disconnectForcibly(1000, 1000);
+        }
+    }
+
+    @Override
     public boolean isConnected() {
         return mqttAsyncClient != null && mqttAsyncClient.isConnected();
     }

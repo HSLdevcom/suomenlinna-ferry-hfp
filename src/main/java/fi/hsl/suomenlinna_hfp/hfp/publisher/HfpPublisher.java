@@ -9,6 +9,8 @@ import java.util.function.Consumer;
 public interface HfpPublisher {
     void connect(Runnable onSuccess, Consumer<Throwable> onError) throws Throwable;
 
+    void disconnect() throws Throwable;
+
     boolean isConnected();
 
     void publish(Topic topic, Payload payload) throws Throwable;
