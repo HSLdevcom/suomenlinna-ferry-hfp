@@ -23,8 +23,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class SuomenlinnaHfpProducer {
     private static final Logger LOG = LoggerFactory.getLogger(SuomenlinnaHfpProducer.class);
 
-    private final Collection<String> routeIds;
-
     private final Map<String, VehicleId> mmsiToVehicleId;
 
     private final TripProcessor tripProcessor;
@@ -40,8 +38,7 @@ public class SuomenlinnaHfpProducer {
 
     private Thread thread;
 
-    public SuomenlinnaHfpProducer(Collection<String> routeIds, Map<String, VehicleId> mmsiToVehicleId, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VesselLocationProvider vesselLocationProvider, HfpPublisher hfpPublisher) {
-        this.routeIds = routeIds;
+    public SuomenlinnaHfpProducer(Map<String, VehicleId> mmsiToVehicleId, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VesselLocationProvider vesselLocationProvider, HfpPublisher hfpPublisher) {
         this.mmsiToVehicleId = mmsiToVehicleId;
         this.tripProcessor = tripProcessor;
         this.gtfsProvider = gtfsProvider;
