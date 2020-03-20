@@ -2,17 +2,19 @@ package fi.hsl.suomenlinna_hfp.gtfs.parser;
 
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
 import fi.hsl.suomenlinna_hfp.gtfs.model.*;
+import fi.hsl.suomenlinna_hfp.gtfs.model.Calendar;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.ZipFile;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -21,144 +23,103 @@ public class GtfsParser {
 
     private GtfsParser() {}
 
-    public static GtfsFeed parseGtfs(ZipInputStream inputStream) throws IOException {
-        List<Route> routes = null;
-        List<Calendar> calendars = null;
-        List<CalendarDate> calendarDates = null;
-        List<Stop> stops = null;
-        List<StopTime> stopTimes = null;
-        List<Trip> trips = null;
+    /**
+     * Parses GTFS feed from specified file
+     * @param gtfsFile File that contains GTFS feed
+     * @param routeIds List of route IDs that will be parsed or null if all routes should be parsed
+     * @return GTFS feed
+     * @throws IOException
+     */
+    public static GtfsFeed parseGtfs(File gtfsFile, Collection<String> routeIds) throws IOException {
+        try (ZipFile zipFile = new ZipFile(gtfsFile)) {
+            List<Route> routes = parseCSVFromZipFile(zipFile, "routes.txt", parseRoutes(routeIds));
+            List<Trip> trips = parseCSVFromZipFile(zipFile, "trips.txt", parseTrips(routeIds));
 
-        ZipEntry entry;
+            Set<String> serviceIds = new HashSet<>();
+            Set<String> tripIds = new HashSet<>(trips.size());
+            trips.forEach(trip -> {
+                serviceIds.add(trip.getServiceId());
+                tripIds.add(trip.getTripId());
+            });
 
-        while ((entry = inputStream.getNextEntry()) != null) {
-            switch (entry.getName()) {
-                case "routes.txt":
-                    routes = parseRoutes(createCSVParser(inputStream));
-                    break;
-                case "calendar.txt":
-                    calendars = parseCalendars(createCSVParser(inputStream));
-                    break;
-                case "calendar_dates.txt":
-                    calendarDates = parseCalendarDates(createCSVParser(inputStream));
-                    break;
-                case "stops.txt":
-                    stops = parseStops(createCSVParser(inputStream));
-                    break;
-                case "stop_times.txt":
-                    stopTimes = parseStopTimes(createCSVParser(inputStream));
-                    break;
-                case "trips.txt":
-                    trips = parseTrips(createCSVParser(inputStream));
-                    break;
-                default:
-                    inputStream.closeEntry();
-            }
+            List<Calendar> calendars = parseCSVFromZipFile(zipFile,"calendar.txt", parseCalendars(serviceIds));
+            List<CalendarDate> calendarDates = parseCSVFromZipFile(zipFile, "calendar_dates.txt", parseCalendarDates(serviceIds));
+
+            List<StopTime> stopTimes = parseCSVFromZipFile(zipFile, "stop_times.txt", parseStopTimes(tripIds));
+
+            Set<String> stopIds = new HashSet<>();
+            stopTimes.forEach(stopTime -> stopIds.add(stopTime.getStopId()));
+
+            List<Stop> stops = parseCSVFromZipFile(zipFile, "stops.txt", parseStops(stopIds));
+
+            return new GtfsFeed(routes, calendars, calendarDates, stops, stopTimes, trips);
         }
-
-        return new GtfsFeed(routes, calendars, calendarDates, stops, stopTimes, trips);
     }
 
-    private static List<Route> parseRoutes(CSVParser parser) {
-        List<Route> routes = new ArrayList<>();
-        parser.forEach(csvRecord -> {
-            routes.add(
-                    new Route(
-                            csvRecord.get("route_id"),
-                            csvRecord.get("route_short_name"),
-                            csvRecord.get("route_long_name")
-                    )
-            );
-        });
-
-        return routes;
+    private static Function<CSVRecord, Route> parseRoutes(Collection<String> routeIds) {
+        return csvRecord -> {
+            Route route = new Route(csvRecord.get("route_id"), csvRecord.get("route_short_name"), csvRecord.get("route_long_name"));
+            return routeIds == null || routeIds.contains(route.getId()) ? route : null;
+        };
     }
 
-    private static List<Calendar> parseCalendars(CSVParser parser) {
-        List<Calendar> calendars = new ArrayList<>();
-        parser.forEach(csvRecord -> {
-            calendars.add(
-                    new Calendar(
-                            csvRecord.get("service_id"),
-                            "1".equals(csvRecord.get("monday")),
-                            "1".equals(csvRecord.get("tuesday")),
-                            "1".equals(csvRecord.get("wednesday")),
-                            "1".equals(csvRecord.get("thursday")),
-                            "1".equals(csvRecord.get("friday")),
-                            "1".equals(csvRecord.get("saturday")),
-                            "1".equals(csvRecord.get("sunday")),
-                            LocalDate.parse(csvRecord.get("start_date"), DateTimeFormatter.BASIC_ISO_DATE),
-                            LocalDate.parse(csvRecord.get("end_date"), DateTimeFormatter.BASIC_ISO_DATE)
-                    )
+    private static Function<CSVRecord, Calendar> parseCalendars(Collection<String> serviceIds) {
+        return csvRecord -> {
+            Calendar calendar = new Calendar(
+                    csvRecord.get("service_id"),
+                    "1".equals(csvRecord.get("monday")),
+                    "1".equals(csvRecord.get("tuesday")),
+                    "1".equals(csvRecord.get("wednesday")),
+                    "1".equals(csvRecord.get("thursday")),
+                    "1".equals(csvRecord.get("friday")),
+                    "1".equals(csvRecord.get("saturday")),
+                    "1".equals(csvRecord.get("sunday")),
+                    LocalDate.parse(csvRecord.get("start_date"), DateTimeFormatter.BASIC_ISO_DATE),
+                    LocalDate.parse(csvRecord.get("end_date"), DateTimeFormatter.BASIC_ISO_DATE)
             );
-        });
 
-        return calendars;
+            return serviceIds == null || serviceIds.contains(calendar.getServiceId()) ? calendar : null;
+        };
     }
 
-    private static List<CalendarDate> parseCalendarDates(CSVParser parser) {
-        List<CalendarDate> calendarDates = new ArrayList<>();
-        parser.forEach(csvRecord -> {
-            calendarDates.add(
-                    new CalendarDate(
-                            csvRecord.get("service_id"),
-                            LocalDate.parse(csvRecord.get("date"), DateTimeFormatter.BASIC_ISO_DATE),
-                            Integer.parseInt(csvRecord.get("exception_type"))
-                    )
-            );
-        });
+    private static Function<CSVRecord, CalendarDate> parseCalendarDates(Collection<String> serviceIds) {
+        return csvRecord -> {
+            CalendarDate calendarDate = new CalendarDate(csvRecord.get("service_id"), LocalDate.parse(csvRecord.get("date"), DateTimeFormatter.BASIC_ISO_DATE), Integer.parseInt(csvRecord.get("exception_type")));
 
-        return calendarDates;
+            return serviceIds == null || serviceIds.contains(calendarDate.getServiceId()) ? calendarDate : null;
+        };
     }
 
-    private static List<Stop> parseStops(CSVParser parser) {
-        List<Stop> stops = new ArrayList<>();
-        parser.forEach(csvRecord -> {
-            stops.add(
-                    new Stop(
-                            csvRecord.get("stop_id"),
-                            new LatLng(Double.parseDouble(csvRecord.get("stop_lat")), Double.parseDouble(csvRecord.get("stop_lon")))
-                    )
-            );
-        });
+    private static Function<CSVRecord, Stop> parseStops(Collection<String> stopIds) {
+        return csvRecord -> {
+            Stop stop = new Stop(csvRecord.get("stop_id"), new LatLng(Double.parseDouble(csvRecord.get("stop_lat")), Double.parseDouble(csvRecord.get("stop_lon"))));
 
-        return stops;
+            return stopIds == null || stopIds.contains(stop.getId()) ? stop : null;
+        };
     }
 
-    private static List<StopTime> parseStopTimes(CSVParser parser) {
-        List<StopTime> stopTimes = new ArrayList<>();
-        parser.forEach(csvRecord -> {
-            stopTimes.add(
-                    new StopTime(
-                            csvRecord.get("\uFEFFtrip_id"),
-                            parseTime(csvRecord.get("arrival_time")),
-                            parseTime(csvRecord.get("departure_time")),
-                            csvRecord.get("stop_id"),
-                            Integer.parseInt(csvRecord.get("stop_sequence")),
-                            Integer.parseInt(csvRecord.get("pickup_type")),
-                            Integer.parseInt(csvRecord.get("drop_off_type"))
-                    )
+    private static Function<CSVRecord, StopTime> parseStopTimes(Collection<String> tripIds) {
+         return csvRecord -> {
+            StopTime stopTime = new StopTime(
+                    csvRecord.get("\uFEFFtrip_id"),
+                    parseTime(csvRecord.get("arrival_time")),
+                    parseTime(csvRecord.get("departure_time")),
+                    csvRecord.get("stop_id"),
+                    Integer.parseInt(csvRecord.get("stop_sequence")),
+                    Integer.parseInt(csvRecord.get("pickup_type")),
+                    Integer.parseInt(csvRecord.get("drop_off_type"))
             );
-        });
 
-        return stopTimes;
+            return tripIds == null || tripIds.contains(stopTime.getTripId()) ? stopTime : null;
+        };
     }
 
-    private static List<Trip> parseTrips(CSVParser parser) {
-        List<Trip> trips = new ArrayList<>();
-        parser.forEach(csvRecord -> {
-            trips.add(
-                    new Trip(
-                            csvRecord.get("route_id"),
-                            csvRecord.get("service_id"),
-                            csvRecord.get("trip_id"),
-                            Integer.parseInt(csvRecord.get("direction_id")),
-                            csvRecord.get("trip_headsign")
-                    )
-            );
-        });
+    private static Function<CSVRecord, Trip> parseTrips(Collection<String> routeIds) {
+        return csvRecord -> {
+            Trip trip = new Trip(csvRecord.get("route_id"), csvRecord.get("service_id"), csvRecord.get("trip_id"), Integer.parseInt(csvRecord.get("direction_id")), csvRecord.get("trip_headsign"));
 
-        return trips;
+            return routeIds == null || routeIds.contains(trip.getRouteId()) ? trip : null;
+        };
     }
 
     private static Integer parseTime(String gtfsTime) {
@@ -169,7 +130,15 @@ public class GtfsParser {
         return Integer.parseInt(parts[0]) * 60 * 60 + Integer.parseInt(parts[1]) * 60 + Integer.parseInt(parts[2]);
     }
 
-    private static CSVParser createCSVParser(InputStream inputStream) throws IOException {
-        return CSVParser.parse(inputStream, UTF_8, GTFS_CSV_FORMAT);
+    private static <T> List<T> parseCSVFromZipFile(ZipFile zipFile, String entryName, Function<CSVRecord, T> mapper) throws IOException {
+        try (CSVParser csvParser = CSVParser.parse(new BufferedInputStream(zipFile.getInputStream(zipFile.getEntry(entryName)), 128 * 1024), UTF_8, GTFS_CSV_FORMAT)) {
+            Iterator<CSVRecord> csvRecords = csvParser.iterator();
+            return Stream.generate(() -> null)
+                    .takeWhile(n -> csvRecords.hasNext())
+                    .map(n -> csvRecords.next())
+                    .map(mapper)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+        }
     }
 }

@@ -9,6 +9,7 @@ import fi.hsl.suomenlinna_hfp.gtfs.provider.HttpGtfsProvider;
 import fi.hsl.suomenlinna_hfp.hfp.model.VehicleId;
 import fi.hsl.suomenlinna_hfp.hfp.publisher.MqttHfpPublisher;
 
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -45,7 +46,10 @@ public class Main {
                 3); //Allow registering for next trip if the previous trip is not finished within 3 * scheduled duration of the trip after registration
 
         VesselLocationProvider vesselLocationProvider = new MqttVesselLocationProvider(meriDigitrafficBroker, meriDigitrafficUser, meriDigitrafficPassword);
-        GtfsProvider gtfsProvider = new HttpGtfsProvider(gtfsUrl, gtfsPollInterval.getSeconds(), TimeUnit.SECONDS);
+
+        HttpClient httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
+        GtfsProvider gtfsProvider = new HttpGtfsProvider(httpClient, gtfsUrl, gtfsPollInterval.getSeconds(), TimeUnit.SECONDS, suomenlinnaFerryRoutes);
+
         MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker, publisherMaxReconnects);
 
         new SuomenlinnaHfpProducer(suomenlinnaFerryRoutes, suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
