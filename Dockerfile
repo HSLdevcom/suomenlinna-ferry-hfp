@@ -9,4 +9,4 @@ RUN mkdir /app
 
 COPY --from=build /gradle/build/libs/*-all.jar /app/application.jar
 
-ENTRYPOINT ["java", "-Xms2g", "-jar", "/app/application.jar"]
+ENTRYPOINT ["java", "-jar", "/app/application.jar"]
