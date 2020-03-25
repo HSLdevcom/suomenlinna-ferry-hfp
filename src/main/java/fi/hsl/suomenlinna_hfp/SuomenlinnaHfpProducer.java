@@ -5,12 +5,12 @@ import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselLocation;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselMetadata;
 import fi.hsl.suomenlinna_hfp.digitraffic.provider.VesselLocationProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.model.*;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Calendar;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.GtfsIndex;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.ServiceDates;
 import fi.hsl.suomenlinna_hfp.hfp.model.*;
 import fi.hsl.suomenlinna_hfp.hfp.publisher.HfpPublisher;
+import fi.hsl.suomenlinna_hfp.hfp.utils.GeohashLevelCalculator;
 import fi.hsl.suomenlinna_hfp.hfp.utils.HfpUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +35,8 @@ public class SuomenlinnaHfpProducer {
     private final BlockingQueue<VesselLocation> vesselLocationQueue = new ArrayBlockingQueue<>(100);
 
     private final Map<Integer, VesselMetadata> vesselMetadatas = Collections.synchronizedMap(new HashMap<>());
+
+    private final GeohashLevelCalculator geohashLevelCalculator = new GeohashLevelCalculator();
 
     private Thread thread;
 
@@ -112,8 +114,10 @@ public class SuomenlinnaHfpProducer {
                         String nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
                                 nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
 
+                        int geohashLevel = geohashLevelCalculator.getGeohashLevel(vehicleId, vesselLocation.coordinates, tripDescriptor, nextStopId);
+
                         Topic topic = new Topic(Topic.HFP_V2_PREFIX, Topic.JourneyType.JOURNEY, Topic.TemporalType.ONGOING, Topic.EventType.VP,
-                                Topic.TransportMode.FERRY, vehicleId, tripDescriptor, nextStopId, 5,
+                                Topic.TransportMode.FERRY, vehicleId, tripDescriptor, nextStopId, geohashLevel,
                                 new Geohash(vesselLocation.coordinates.getLatitude(), vesselLocation.coordinates.getLongitude()));
 
                         Payload payload = new Payload(tripDescriptor.routeName, tripDescriptor.directionId, vehicleId.operatorId, vehicleId.vehicleId,
