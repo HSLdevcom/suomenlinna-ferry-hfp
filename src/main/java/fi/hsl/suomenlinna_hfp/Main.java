@@ -12,7 +12,6 @@ import fi.hsl.suomenlinna_hfp.hfp.publisher.MqttHfpPublisher;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -41,9 +40,12 @@ public class Main {
         String publisherBroker = config.getString("publisher.broker");
         int publisherMaxReconnects = config.getInt("publisher.maxReconnects");
 
+        Duration maxTimeBeforeDeparture = config.getDuration("tripProcessor.maxTimeBeforeDeparture");
+        double maxTripDuration = config.getDouble("tripProcessor.maxTripDuration");
+
         TripProcessor tripProcessor = new TripProcessor(timezone, suomenlinnaFerryRoutes, maxDistanceFromStop, defaultMaxDistanceFromStop,
-                Duration.of(5, ChronoUnit.MINUTES), //Allow registering for a trip up to 5 minutes before scheduled departure
-                3); //Allow registering for next trip if the previous trip is not finished within 3 * scheduled duration of the trip after registration
+                maxTimeBeforeDeparture,
+                maxTripDuration);
 
         VesselLocationProvider vesselLocationProvider = new MqttVesselLocationProvider(meriDigitrafficBroker, meriDigitrafficUser, meriDigitrafficPassword);
 
