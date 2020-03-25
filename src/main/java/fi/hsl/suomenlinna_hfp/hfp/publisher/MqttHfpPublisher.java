@@ -65,9 +65,7 @@ public class MqttHfpPublisher implements HfpPublisher {
                 if (++connectionLostCount > maxReconnects && maxReconnects != -1) {
                     LOG.error("Connection lost to {} more than {} times, aborting..", brokerUri, maxReconnects);
                     onError.accept(new IOException("Connection lost to "+brokerUri));
-                    try {
-                        mqttAsyncClient.disconnectForcibly(0, 1000);
-                    } catch (MqttException e) {}
+                    disconnect();
                 }
             }
 
