@@ -80,7 +80,7 @@ public class MqttHfpPublisher implements HfpPublisher {
                 LOG.debug("Message sent to {} to topics {}", brokerUri, Arrays.toString(token.getTopics()));
             }
         });
-        mqttAsyncClient.connect(connectOptions, new IMqttActionListener() {
+        mqttAsyncClient.connect(connectOptions, null, new IMqttActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 if (onSuccess != null) {
