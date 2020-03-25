@@ -11,6 +11,7 @@ env:
     - DOCKER_TAG_LOCAL=$DOCKER_TAG:$TRAVIS_COMMIT
     - DOCKER_TAG_LATEST=$DOCKER_TAG:latest
     - DOCKER_TAG_RELEASE=$DOCKER_TAG:${TRAVIS_TAG:-release}
+    - DOCKER_TAG_PROD=$DOCKER_TAG:prod
 
 cache:
   directories:
@@ -37,6 +38,6 @@ deploy:
     on:
       branch: master
   - provider: script
-    script: docker tag $DOCKER_TAG_LOCAL $DOCKER_TAG_RELEASE && docker push $DOCKER_TAG_RELEASE
+    script: docker tag $DOCKER_TAG_LOCAL $DOCKER_TAG_RELEASE && docker push $DOCKER_TAG_RELEASE && docker tag $DOCKER_TAG_LOCAL $DOCKER_TAG_PROD && docker push $DOCKER_TAG_PROD
     on:
       tags: true
