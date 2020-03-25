@@ -30,8 +30,17 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
     }
 
     @Override
-    public void stop() throws MqttException {
-        mqttAsyncClient.disconnect(0);
+    public void stop() {
+        try {
+            mqttAsyncClient.disconnect(0);
+        } catch (MqttException e) {
+            LOG.warn("Failed to disconnect MQTT client", e);
+        }
+        try {
+            mqttAsyncClient.close(true);
+        } catch (MqttException e) {
+            LOG.warn("Failed to close MQTT client", e);
+        }
         mqttAsyncClient = null;
     }
 
@@ -62,9 +71,7 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
                     LOG.error("Failed to subscribe MQTT topics {} with QoS {}", topics, qos);
                     onConnectionFailed.accept(e);
 
-                    try {
-                        stop();
-                    } catch (MqttException ex) {}
+                    stop();
                 }
             }
 

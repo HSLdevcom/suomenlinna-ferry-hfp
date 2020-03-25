@@ -8,6 +8,6 @@ import java.util.Collection;
 import java.util.function.Consumer;
 
 public interface VesselLocationProvider {
-    void stop() throws Throwable;
+    void stop();
     void start(Collection<String> mmsis, Consumer<VesselLocation> locationConsumer, Consumer<VesselMetadata> metadataConsumer, Consumer<Throwable> onError) throws Throwable;
 }

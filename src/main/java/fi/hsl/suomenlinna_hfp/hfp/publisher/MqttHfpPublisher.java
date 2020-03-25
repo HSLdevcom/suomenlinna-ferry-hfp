@@ -98,9 +98,19 @@ public class MqttHfpPublisher implements HfpPublisher {
     }
 
     @Override
-    public void disconnect() throws Throwable {
+    public void disconnect() {
         if (mqttAsyncClient != null) {
-            mqttAsyncClient.disconnectForcibly(1000, 1000);
+            try {
+                mqttAsyncClient.disconnectForcibly(1000, 1000);
+            } catch (MqttException e) {
+                LOG.warn("Failed to disconnect MQTT client", e);
+            }
+            try {
+                mqttAsyncClient.close(true);
+            } catch (MqttException e) {
+                LOG.warn("Failed to close MQTT client", e);
+            }
+            mqttAsyncClient = null;
         }
     }
 

@@ -76,12 +76,8 @@ public class SuomenlinnaHfpProducer {
                 });
                 LOG.info("Stopping program..");
                 gtfsProvider.stop();
-                try {
-                    vesselLocationProvider.stop();
-                } catch (Throwable e) {}
-                try {
-                    hfpPublisher.disconnect();
-                } catch (Throwable e) {}
+                vesselLocationProvider.stop();
+                hfpPublisher.disconnect();
                 break;
             }
 
