@@ -52,6 +52,7 @@ public class MqttHfpPublisher implements HfpPublisher {
         connectOptions.setCleanSession(false);
         connectOptions.setAutomaticReconnect(true);
         connectOptions.setMqttVersion(4);
+        connectOptions.setMaxInflight(100); //TODO: should be configurable
         mqttAsyncClient.setCallback(new MqttCallbackExtended() {
             @Override
             public void connectComplete(boolean reconnect, String serverURI) {
