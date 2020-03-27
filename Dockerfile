@@ -9,4 +9,7 @@ RUN mkdir /app
 
 COPY --from=build /gradle/build/libs/*-all.jar /app/application.jar
 
+#curl for health check
+RUN apt-get update && apt-get install -y --no-install-recommends curl
+
 ENTRYPOINT ["java", "-jar", "/app/application.jar"]

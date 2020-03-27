@@ -10,4 +10,5 @@ import java.util.function.Consumer;
 public interface VesselLocationProvider {
     void stop();
     void start(Collection<String> mmsis, Consumer<VesselLocation> locationConsumer, Consumer<VesselMetadata> metadataConsumer, Consumer<Throwable> onError) throws Throwable;
+    long getLastReceivedTime();
 }

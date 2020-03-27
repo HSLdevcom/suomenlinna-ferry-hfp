@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 public class MqttVesselLocationProvider implements VesselLocationProvider {
@@ -22,6 +23,8 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
     private final String password;
 
     private MqttAsyncClient mqttAsyncClient;
+
+    private final AtomicLong lastReceivedTime = new AtomicLong(System.nanoTime());
 
     public MqttVesselLocationProvider(String brokerUri, String username, String password) {
         this.brokerUri = brokerUri;
@@ -96,6 +99,7 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
                         LOG.warn("Failed to parse vessel location", e);
                     }
                 }
+                lastReceivedTime.set(System.nanoTime());
             }
 
             @Override
@@ -112,5 +116,10 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
                 onConnectionFailed.accept(exception);
             }
         });
+    }
+
+    @Override
+    public long getLastReceivedTime() {
+        return lastReceivedTime.get();
     }
 }
