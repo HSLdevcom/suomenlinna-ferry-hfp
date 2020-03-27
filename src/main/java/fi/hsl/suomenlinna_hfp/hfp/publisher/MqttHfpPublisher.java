@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 public class MqttHfpPublisher implements HfpPublisher {
@@ -27,6 +28,8 @@ public class MqttHfpPublisher implements HfpPublisher {
     private MqttAsyncClient mqttAsyncClient;
 
     private int connectionLostCount = 0;
+
+    private AtomicLong lastSentTime = new AtomicLong(System.nanoTime());
 
     /**
      *
@@ -76,6 +79,7 @@ public class MqttHfpPublisher implements HfpPublisher {
             @Override
             public void deliveryComplete(IMqttDeliveryToken token) {
                 LOG.debug("Message sent to {} to topics {}", brokerUri, Arrays.toString(token.getTopics()));
+                lastSentTime.set(System.nanoTime());
             }
         });
         mqttAsyncClient.connect(connectOptions, null, new IMqttActionListener() {
@@ -127,5 +131,10 @@ public class MqttHfpPublisher implements HfpPublisher {
         } catch (JsonProcessingException e) {
             LOG.warn("Failed to serialize HFP message as JSON", e);
         }
+    }
+
+    @Override
+    public long getLastSentTime() {
+        return lastSentTime.get();
     }
 }

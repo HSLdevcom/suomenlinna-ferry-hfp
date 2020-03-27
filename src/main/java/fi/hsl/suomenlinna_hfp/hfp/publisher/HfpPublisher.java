@@ -14,4 +14,6 @@ public interface HfpPublisher {
     boolean isConnected();
 
     void publish(Topic topic, Payload payload) throws Throwable;
+
+    long getLastSentTime();
 }

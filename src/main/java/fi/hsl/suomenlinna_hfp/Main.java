@@ -6,12 +6,14 @@ import fi.hsl.suomenlinna_hfp.digitraffic.provider.MqttVesselLocationProvider;
 import fi.hsl.suomenlinna_hfp.digitraffic.provider.VesselLocationProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.HttpGtfsProvider;
+import fi.hsl.suomenlinna_hfp.health.HealthServer;
 import fi.hsl.suomenlinna_hfp.hfp.model.VehicleId;
 import fi.hsl.suomenlinna_hfp.hfp.publisher.MqttHfpPublisher;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -53,6 +55,12 @@ public class Main {
         GtfsProvider gtfsProvider = new HttpGtfsProvider(httpClient, gtfsUrl, gtfsPollInterval.getSeconds(), TimeUnit.SECONDS, suomenlinnaFerryRoutes);
 
         MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker, publisherMaxReconnects);
+
+        if (config.getBoolean("health.enabled")) {
+            HealthServer healthServer = new HealthServer(8080);
+            healthServer.addCheck(() -> System.nanoTime() - vesselLocationProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+            healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+        }
 
         new SuomenlinnaHfpProducer(suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
     }
