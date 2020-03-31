@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 public class TripProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(TripProcessor.class);
 
+    private static final int ONE_DAY_IN_SECONDS = 24 * 60 * 60;
+
     private Map<VehicleId, TripAndRouteWithStopTimes> registeredTrips = new HashMap<>();
     //Time when vehicle registered for the trip
     private Map<VehicleId, ZonedDateTime> registrationTimes = new HashMap<>();
@@ -88,7 +90,17 @@ public class TripProcessor {
                                     value = new TreeMap<>();
                                 }
 
-                                ZonedDateTime startTime = date.atStartOfDay(timezone).plus(stopTimes.first().getDepartureTime(), ChronoUnit.SECONDS);
+                                ZonedDateTime startTime;
+
+                                int departureTimeSeconds = stopTimes.first().getDepartureTime();
+                                if (departureTimeSeconds >= ONE_DAY_IN_SECONDS) {
+                                    //If the trip starts at or after midnight add one day to date and minus one day in seconds from start time
+                                    //This is needed to get the start time for correct date
+                                    startTime = date.plusDays(1).atTime(LocalTime.ofSecondOfDay(departureTimeSeconds - ONE_DAY_IN_SECONDS)).atZone(timezone);
+                                } else {
+                                    startTime = date.atTime(LocalTime.ofSecondOfDay(departureTimeSeconds)).atZone(timezone);
+                                }
+
                                 value.put(startTime, new TripAndRouteWithStopTimes(trip,
                                         gtfsIndex.routesById.get(trip.getRouteId()),
                                         date,
