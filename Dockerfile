@@ -3,8 +3,7 @@ COPY --chown=gradle:gradle . /gradle
 WORKDIR /gradle
 RUN gradle shadowJar --no-daemon 
 
-#Use jdk instead of jre to get access to remote debug tools
-FROM openjdk:11-jdk-slim
+FROM openjdk:11-jre-slim
 
 RUN mkdir /app
 
