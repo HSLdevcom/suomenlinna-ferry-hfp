@@ -13,9 +13,17 @@ import java.util.function.*;
 public class HealthServer {
     private static final Logger log = LoggerFactory.getLogger(HealthServer.class);
 
-    public final int port;
-    public final HttpServer httpServer;
+    private final int port;
+    private final HttpServer httpServer;
+    private HealthNotificationService healthNotificationService;
     private List<BooleanSupplier> checks = new ArrayList<>();
+    private boolean notificationEnabled = false;
+
+    public HealthServer(final int port, HealthNotificationService healthNotificationService) throws IOException {
+        this(port);
+        this.notificationEnabled = true;
+        this.healthNotificationService = healthNotificationService;
+    }
 
     public HealthServer(final int port) throws IOException {
         this.port = port;
@@ -30,15 +38,6 @@ public class HealthServer {
         }));
         httpServer.start();
         log.info("HealthServer started");
-    }
-
-    private void writeResponse(final HttpExchange httpExchange, final int responseCode, final String responseBody) throws IOException {
-        final byte[] response = responseBody.getBytes(StandardCharsets.UTF_8);
-        httpExchange.getResponseHeaders().add("Content-Type", "text/plain; charset=UTF-8");
-        httpExchange.sendResponseHeaders(responseCode, response.length);
-        try (OutputStream out = httpExchange.getResponseBody()) {
-            out.write(response);
-        }
     }
 
     private HttpHandler createDefaultHandler() {
@@ -59,11 +58,32 @@ public class HealthServer {
                 responseBody = "Method Not Allowed";
             } else {
                 final boolean isHealthy = checkHealth();
+                if (!isHealthy && notificationEnabled) {
+                    healthNotificationService.notifySlackChannel();
+                }
                 responseCode = isHealthy ? 200 : 503;
                 responseBody = isHealthy ? "OK" : "FAIL";
             }
             writeResponse(httpExchange, responseCode, responseBody);
         };
+    }
+
+    private boolean checkHealth() {
+        for (final BooleanSupplier check : checks) {
+            if (!check.getAsBoolean()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void writeResponse(final HttpExchange httpExchange, final int responseCode, final String responseBody) throws IOException {
+        final byte[] response = responseBody.getBytes(StandardCharsets.UTF_8);
+        httpExchange.getResponseHeaders().add("Content-Type", "text/plain; charset=UTF-8");
+        httpExchange.sendResponseHeaders(responseCode, response.length);
+        try (OutputStream out = httpExchange.getResponseBody()) {
+            out.write(response);
+        }
     }
 
     public void addCheck(final BooleanSupplier check) {
@@ -80,18 +100,13 @@ public class HealthServer {
         checks.clear();
     }
 
-    public boolean checkHealth() {
-        for (final BooleanSupplier check : checks) {
-            if (!check.getAsBoolean()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public void close() {
         if (httpServer != null) {
             httpServer.stop(0);
         }
+    }
+
+    public void enableNotification() {
+        this.notificationEnabled = true;
     }
 }

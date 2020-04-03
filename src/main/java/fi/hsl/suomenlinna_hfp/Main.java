@@ -7,6 +7,7 @@ import fi.hsl.suomenlinna_hfp.health.*;
 import fi.hsl.suomenlinna_hfp.hfp.model.*;
 import fi.hsl.suomenlinna_hfp.hfp.publisher.*;
 
+import java.io.*;
 import java.net.http.*;
 import java.time.*;
 import java.time.temporal.*;
@@ -53,11 +54,23 @@ public class Main {
         MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker, publisherMaxReconnects);
 
         if (config.getBoolean("health.enabled")) {
-            HealthServer healthServer = new HealthServer(8080);
-            healthServer.addCheck(() -> System.nanoTime() - vesselLocationProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
-            healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+            if (!config.getString("health.postEndpoint").equals("")) {
+                createHealthServerWithNotification(vesselLocationProvider, mqttHfpPublisher, config.getString("health.postEndpoint"));
+            } else {
+                createHealthServerWithoutNotification(vesselLocationProvider, mqttHfpPublisher);
+            }
         }
+    }
 
-        new SuomenlinnaHfpProducer(suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
+    private static void createHealthServerWithNotification(VesselLocationProvider vesselLocationProvider, MqttHfpPublisher mqttHfpPublisher, String postEndpoint) throws IOException {
+        HealthServer healthServer = new HealthServer(8080, new HealthNotificationService(postEndpoint));
+        healthServer.addCheck(() -> System.nanoTime() - vesselLocationProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+        healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+    }
+
+    private static void createHealthServerWithoutNotification(VesselLocationProvider vesselLocationProvider, MqttHfpPublisher mqttHfpPublisher) throws IOException {
+        HealthServer healthServer = new HealthServer(8080);
+        healthServer.addCheck(() -> System.nanoTime() - vesselLocationProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+        healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
     }
 }
