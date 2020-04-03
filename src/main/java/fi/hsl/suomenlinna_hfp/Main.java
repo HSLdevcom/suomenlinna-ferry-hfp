@@ -1,22 +1,19 @@
 package fi.hsl.suomenlinna_hfp;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import fi.hsl.suomenlinna_hfp.digitraffic.provider.MqttVesselLocationProvider;
-import fi.hsl.suomenlinna_hfp.digitraffic.provider.VesselLocationProvider;
-import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
-import fi.hsl.suomenlinna_hfp.gtfs.provider.HttpGtfsProvider;
-import fi.hsl.suomenlinna_hfp.health.HealthServer;
-import fi.hsl.suomenlinna_hfp.hfp.model.VehicleId;
-import fi.hsl.suomenlinna_hfp.hfp.publisher.MqttHfpPublisher;
+import com.typesafe.config.*;
+import fi.hsl.suomenlinna_hfp.digitraffic.provider.*;
+import fi.hsl.suomenlinna_hfp.gtfs.provider.*;
+import fi.hsl.suomenlinna_hfp.health.*;
+import fi.hsl.suomenlinna_hfp.hfp.model.*;
+import fi.hsl.suomenlinna_hfp.hfp.publisher.*;
 
-import java.net.http.HttpClient;
-import java.time.Duration;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
+import java.io.*;
+import java.net.http.*;
+import java.time.*;
+import java.time.temporal.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.concurrent.*;
+import java.util.stream.*;
 
 public class Main {
     public static void main(String[] args) throws Throwable {
@@ -28,7 +25,7 @@ public class Main {
 
         double defaultMaxDistanceFromStop = config.getDouble("defaultMaxDistanceFromStop");
 
-        Map<String, Double> maxDistanceFromStop = config.getObject("maxDistanceFromStop").entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> ((Number)entry.getValue().unwrapped()).doubleValue()));
+        Map<String, Double> maxDistanceFromStop = config.getObject("maxDistanceFromStop").entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> ((Number) entry.getValue().unwrapped()).doubleValue()));
 
         ZoneId timezone = ZoneId.of(config.getString("timezone"));
 
@@ -57,11 +54,23 @@ public class Main {
         MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker, publisherMaxReconnects);
 
         if (config.getBoolean("health.enabled")) {
-            HealthServer healthServer = new HealthServer(8080);
-            healthServer.addCheck(() -> System.nanoTime() - vesselLocationProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
-            healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+            if (!config.getString("health.postEndpoint").equals("")) {
+                createHealthServerWithNotification(vesselLocationProvider, mqttHfpPublisher, config.getString("health.postEndpoint"));
+            } else {
+                createHealthServerWithoutNotification(vesselLocationProvider, mqttHfpPublisher);
+            }
         }
+    }
 
-        new SuomenlinnaHfpProducer(suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
+    private static void createHealthServerWithNotification(VesselLocationProvider vesselLocationProvider, MqttHfpPublisher mqttHfpPublisher, String postEndpoint) throws IOException {
+        HealthServer healthServer = new HealthServer(8080, new HealthNotificationService(postEndpoint));
+        healthServer.addCheck(() -> System.nanoTime() - vesselLocationProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+        healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+    }
+
+    private static void createHealthServerWithoutNotification(VesselLocationProvider vesselLocationProvider, MqttHfpPublisher mqttHfpPublisher) throws IOException {
+        HealthServer healthServer = new HealthServer(8080);
+        healthServer.addCheck(() -> System.nanoTime() - vesselLocationProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
+        healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
     }
 }
