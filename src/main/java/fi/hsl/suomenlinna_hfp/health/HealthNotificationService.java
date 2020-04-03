@@ -21,7 +21,7 @@ public class HealthNotificationService {
     void notifySlackChannel() throws IOException {
         HttpPost httpPost = new HttpPost(postEndpoint);
         httpPost.setHeader("Accept", "application/json");
-        httpPost.setHeader("Content-type", "application/json");
+        httpPost.setHeader("Content-Type", "application/json");
 
         String inputJson = "{\"text\": \"Suomenlinnan lautoissa ongelmia!\"}";
         StringEntity stringEntity = new StringEntity(inputJson);
