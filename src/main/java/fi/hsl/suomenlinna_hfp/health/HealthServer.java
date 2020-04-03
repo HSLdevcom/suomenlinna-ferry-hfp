@@ -105,8 +105,4 @@ public class HealthServer {
             httpServer.stop(0);
         }
     }
-
-    public void enableNotification() {
-        this.notificationEnabled = true;
-    }
 }
