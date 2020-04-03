@@ -26,12 +26,7 @@ public class HealthNotificationService {
         String inputJson = "{\"text\": \"Suomenlinnan lautoissa ongelmia!\"}";
         StringEntity stringEntity = new StringEntity(inputJson);
         httpPost.setEntity(stringEntity);
-
         HttpResponse response = apacheDefaultClient.execute(httpPost);
 
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new RuntimeException("Can't post to monitoring api!");
-        }
     }
 }
