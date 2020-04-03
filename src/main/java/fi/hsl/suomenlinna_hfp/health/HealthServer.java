@@ -68,15 +68,6 @@ public class HealthServer {
         };
     }
 
-    private boolean checkHealth() {
-        for (final BooleanSupplier check : checks) {
-            if (!check.getAsBoolean()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private void writeResponse(final HttpExchange httpExchange, final int responseCode, final String responseBody) throws IOException {
         final byte[] response = responseBody.getBytes(StandardCharsets.UTF_8);
         httpExchange.getResponseHeaders().add("Content-Type", "text/plain; charset=UTF-8");
@@ -84,6 +75,15 @@ public class HealthServer {
         try (OutputStream out = httpExchange.getResponseBody()) {
             out.write(response);
         }
+    }
+
+    private boolean checkHealth() {
+        for (final BooleanSupplier check : checks) {
+            if (!check.getAsBoolean()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public void addCheck(final BooleanSupplier check) {
