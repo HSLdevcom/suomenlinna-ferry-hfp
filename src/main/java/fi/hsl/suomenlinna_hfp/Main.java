@@ -60,6 +60,8 @@ public class Main {
                 createHealthServerWithoutNotification(vesselLocationProvider, mqttHfpPublisher);
             }
         }
+
+        new SuomenlinnaHfpProducer(suomenlinnaFerryIds, tripProcessor, gtfsProvider, vesselLocationProvider, mqttHfpPublisher).run();
     }
 
     private static void createHealthServerWithNotification(VesselLocationProvider vesselLocationProvider, MqttHfpPublisher mqttHfpPublisher, String postEndpoint) throws IOException {
