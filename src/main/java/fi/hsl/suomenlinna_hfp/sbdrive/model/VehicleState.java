@@ -2,6 +2,7 @@ package fi.hsl.suomenlinna_hfp.sbdrive.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import fi.hsl.suomenlinna_hfp.common.model.LatLng;
 
 import java.util.Objects;
 
@@ -35,6 +36,10 @@ public class VehicleState {
         this.runningMode = runningMode;
         this.connection = connection;
         this.canReceivePetitions = canReceivePetitions;
+    }
+
+    public LatLng getCoordinates() {
+        return new LatLng(latitude, longitude);
     }
 
     @Override
