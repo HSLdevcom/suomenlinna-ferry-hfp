@@ -11,6 +11,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -28,6 +29,8 @@ public class PollingVehicleStateProvider implements VehicleStateProvider {
     private final String endpoint;
     private final String apiKey;
 
+    private final Duration pollInterval;
+
     private final ScheduledExecutorService executor;
     private ScheduledFuture scheduledFuture;
 
@@ -35,10 +38,11 @@ public class PollingVehicleStateProvider implements VehicleStateProvider {
 
     private Token token;
 
-    public PollingVehicleStateProvider(HttpClient httpClient, String endpoint, String apiKey) {
+    public PollingVehicleStateProvider(HttpClient httpClient, String endpoint, String apiKey, Duration pollInterval) {
         this.httpClient = httpClient;
         this.endpoint = endpoint;
         this.apiKey = apiKey;
+        this.pollInterval = pollInterval;
 
         this.executor = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
     }
@@ -95,7 +99,7 @@ public class PollingVehicleStateProvider implements VehicleStateProvider {
                 LOG.warn("Error polling vehicle states", e);
                 onError.accept(e);
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     @Override
