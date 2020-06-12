@@ -3,11 +3,13 @@ package fi.hsl.suomenlinna_hfp.sbdrive.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
+import fi.hsl.suomenlinna_hfp.common.model.VehiclePosition;
+import fi.hsl.suomenlinna_hfp.common.utils.SpeedUtils;
 
 import java.util.Objects;
 
-public class VehicleState {
-    public final Integer timestamp;
+public class VehicleState implements VehiclePosition {
+    public final Long timestamp;
     public final String vehicleId;
     public final Double latitude;
     public final Double longitude;
@@ -18,14 +20,14 @@ public class VehicleState {
     public final Boolean canReceivePetitions;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public VehicleState(Integer timestamp,
+    public VehicleState(@JsonProperty("timestamp") Long timestamp,
                         @JsonProperty("vehicle_id") String vehicleId,
                         @JsonProperty("lat") Double latitude,
                         @JsonProperty("lon") Double longitude,
-                        Double azimuth,
-                        Double speed,
+                        @JsonProperty("azimuth") Double azimuth,
+                        @JsonProperty("speed") Double speed,
                         @JsonProperty("running_mode") String runningMode,
-                        String connection,
+                        @JsonProperty("connection") String connection,
                         @JsonProperty("can_receive_petitions") Boolean canReceivePetitions) {
         this.timestamp = timestamp;
         this.vehicleId = vehicleId;
@@ -38,8 +40,33 @@ public class VehicleState {
         this.canReceivePetitions = canReceivePetitions;
     }
 
+    @Override
+    public String getId() {
+        return vehicleId;
+    }
+
     public LatLng getCoordinates() {
         return new LatLng(latitude, longitude);
+    }
+
+    @Override
+    public double getSpeed() {
+        //API seems to return negative or very low speeds in some cases
+        if (speed < 0.5) {
+            return 0;
+        }
+        return SpeedUtils.kilometresPerHourToMetresPerSecond(speed);
+    }
+
+    @Override
+    public double getHeading() {
+        return azimuth;
+    }
+
+    @Override
+    public long getTimestamp() {
+        //Timestamp in milliseconds
+        return timestamp * 1000;
     }
 
     @Override
