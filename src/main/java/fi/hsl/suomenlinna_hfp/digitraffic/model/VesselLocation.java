@@ -3,12 +3,14 @@ package fi.hsl.suomenlinna_hfp.digitraffic.model;
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
+import fi.hsl.suomenlinna_hfp.common.model.VehiclePosition;
+import fi.hsl.suomenlinna_hfp.common.utils.SpeedUtils;
 
 import java.util.Objects;
 import java.util.Properties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class VesselLocation {
+public class VesselLocation implements VehiclePosition {
     public final Integer mmsi;
     public final LatLng coordinates;
     public final Properties properties;
@@ -44,6 +46,32 @@ public class VesselLocation {
                 ", coordinates=" + coordinates +
                 ", properties=" + properties +
                 '}';
+    }
+
+    @Override
+    public String getId() {
+        return String.valueOf(mmsi);
+    }
+
+    @Override
+    public LatLng getCoordinates() {
+        return new LatLng(coordinates.getLatitude(), coordinates.getLongitude());
+    }
+
+    @Override
+    public double getSpeed() {
+        return SpeedUtils.knotsToMetresPerSecond(properties.speed);
+    }
+
+    @Override
+    public double getHeading() {
+        //If vessel heading is not available (special value 511), use vessel course for heading
+        return Math.round(properties.heading) == 511 ? properties.course : properties.heading;
+    }
+
+    @Override
+    public long getTimestamp() {
+        return properties.timestamp;
     }
 
     @JsonIgnoreProperties(value = { "timestamp" }, ignoreUnknown = true)
