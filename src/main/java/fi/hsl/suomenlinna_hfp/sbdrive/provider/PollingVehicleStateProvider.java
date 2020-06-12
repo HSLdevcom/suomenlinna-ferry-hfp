@@ -19,7 +19,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-public class PollingVehicleStateProvider implements VehicleStateProvider {
+public class PollingVehicleStateProvider extends VehicleStateProvider {
     private static final Logger LOG = LoggerFactory.getLogger(PollingVehicleStateProvider.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();

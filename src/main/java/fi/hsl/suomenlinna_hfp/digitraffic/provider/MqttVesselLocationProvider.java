@@ -13,7 +13,7 @@ import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-public class MqttVesselLocationProvider implements VesselLocationProvider {
+public class MqttVesselLocationProvider extends VesselLocationProvider {
     private static final Logger LOG = LoggerFactory.getLogger(MqttVesselLocationProvider.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -22,14 +22,18 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
     private final String username;
     private final String password;
 
+    private final Collection<String> mmsis;
+
     private MqttAsyncClient mqttAsyncClient;
 
     private final AtomicLong lastReceivedTime = new AtomicLong(System.nanoTime());
 
-    public MqttVesselLocationProvider(String brokerUri, String username, String password) {
+    public MqttVesselLocationProvider(String brokerUri, String username, String password, Collection<String> mmsis) {
         this.brokerUri = brokerUri;
         this.username = username;
         this.password = password;
+
+        this.mmsis = mmsis;
     }
 
     @Override
@@ -48,7 +52,7 @@ public class MqttVesselLocationProvider implements VesselLocationProvider {
     }
 
     @Override
-    public void start(Collection<String> mmsis, Consumer<VesselLocation> locationConsumer, Consumer<VesselMetadata> metadataConsumer, Consumer<Throwable> onConnectionFailed) throws MqttException {
+    public void start(Consumer<VesselLocation> locationConsumer, Consumer<VesselMetadata> metadataConsumer, Consumer<Throwable> onConnectionFailed) throws MqttException {
         mqttAsyncClient = new MqttAsyncClient(brokerUri, MqttAsyncClient.generateClientId());
 
         MqttConnectOptions connectOptions = new MqttConnectOptions();
