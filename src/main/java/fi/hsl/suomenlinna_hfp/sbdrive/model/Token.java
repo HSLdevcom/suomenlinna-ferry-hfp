@@ -12,7 +12,7 @@ public class Token {
     public final String tokenType;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public Token(Integer expiration, String token, @JsonProperty("token_type") String tokenType) {
+    public Token(@JsonProperty("expiration") Integer expiration, @JsonProperty("token") String token, @JsonProperty("token_type") String tokenType) {
         this.expiration = expiration;
         this.token = token;
         this.tokenType = tokenType;
