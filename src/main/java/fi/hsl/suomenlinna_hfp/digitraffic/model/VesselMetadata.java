@@ -3,11 +3,12 @@ package fi.hsl.suomenlinna_hfp.digitraffic.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import fi.hsl.suomenlinna_hfp.common.model.VehicleMetadata;
 
 import java.util.Objects;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class VesselMetadata {
+public class VesselMetadata implements VehicleMetadata {
     public final Integer mmsi;
     public final String name;
     public final Integer shipType;
@@ -98,5 +99,15 @@ public class VesselMetadata {
                 ", timestamp=" + timestamp +
                 ", destination='" + destination + '\'' +
                 '}';
+    }
+
+    @Override
+    public String getId() {
+        return String.valueOf(mmsi);
+    }
+
+    @Override
+    public String getLabel() {
+        return name;
     }
 }

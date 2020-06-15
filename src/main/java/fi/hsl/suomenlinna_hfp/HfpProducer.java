@@ -1,10 +1,10 @@
 package fi.hsl.suomenlinna_hfp;
 
-import fi.hsl.suomenlinna_hfp.common.utils.SpeedUtils;
-import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselLocation;
-import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselMetadata;
-import fi.hsl.suomenlinna_hfp.digitraffic.provider.VesselLocationProvider;
-import fi.hsl.suomenlinna_hfp.gtfs.model.*;
+import fi.hsl.suomenlinna_hfp.common.VehiclePositionProvider;
+import fi.hsl.suomenlinna_hfp.common.model.VehicleMetadata;
+import fi.hsl.suomenlinna_hfp.common.model.VehiclePosition;
+import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
+import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.GtfsIndex;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.ServiceDates;
@@ -15,36 +15,41 @@ import fi.hsl.suomenlinna_hfp.hfp.utils.HfpUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class SuomenlinnaHfpProducer {
-    private static final Logger LOG = LoggerFactory.getLogger(SuomenlinnaHfpProducer.class);
+public class HfpProducer {
+    private static final Logger LOG = LoggerFactory.getLogger(HfpProducer.class);
 
-    private final Map<String, VehicleId> mmsiToVehicleId;
+    private final Topic.TransportMode transportMode;
+    private final Map<String, VehicleId> vehicleIdMap;
 
     private final TripProcessor tripProcessor;
 
     private final GtfsProvider gtfsProvider;
-    private final VesselLocationProvider vesselLocationProvider;
+    private final VehiclePositionProvider vehiclePositionProvider;
     private final HfpPublisher hfpPublisher;
 
     private final BlockingQueue<Throwable> errorQueue = new LinkedBlockingQueue<>();
-    private final BlockingQueue<VesselLocation> vesselLocationQueue = new ArrayBlockingQueue<>(100);
+    private final BlockingQueue<VehiclePosition> vehiclePositionQueue = new ArrayBlockingQueue<>(100);
 
-    private final Map<Integer, VesselMetadata> vesselMetadatas = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, VehicleMetadata> vehicleMetadatas = Collections.synchronizedMap(new HashMap<>());
 
     private final GeohashLevelCalculator geohashLevelCalculator = new GeohashLevelCalculator();
 
     private Thread thread;
 
-    public SuomenlinnaHfpProducer(Map<String, VehicleId> mmsiToVehicleId, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VesselLocationProvider vesselLocationProvider, HfpPublisher hfpPublisher) {
-        this.mmsiToVehicleId = mmsiToVehicleId;
+    public HfpProducer(Topic.TransportMode transportMode, Map<String, VehicleId> vehicleIdMap, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VehiclePositionProvider vehiclePositionProvider, HfpPublisher hfpPublisher) {
+        this.transportMode = transportMode;
+        this.vehicleIdMap = vehicleIdMap;
         this.tripProcessor = tripProcessor;
         this.gtfsProvider = gtfsProvider;
-        this.vesselLocationProvider = vesselLocationProvider;
+        this.vehiclePositionProvider = vehiclePositionProvider;
         this.hfpPublisher = hfpPublisher;
     }
 
@@ -55,10 +60,10 @@ public class SuomenlinnaHfpProducer {
 
     public void run() throws Throwable {
         if (this.thread != null) {
-            throw new IllegalStateException("SuomenlinnaHfpProducer is already running");
+            throw new IllegalStateException("HfpProducer is already running");
         }
 
-        LOG.info("Starting SuomenlinnaHfpProducer");
+        LOG.info("Starting HfpProducer");
 
         this.thread = Thread.currentThread();
 
@@ -68,7 +73,7 @@ public class SuomenlinnaHfpProducer {
 
             tripProcessor.updateGtfsData(gtfsIndex, serviceDates);
         }, this::onError);
-        vesselLocationProvider.start(mmsiToVehicleId.keySet(), vesselLocationQueue::offer, vesselMetadata -> vesselMetadatas.put(vesselMetadata.mmsi, vesselMetadata), this::onError);
+        vehiclePositionProvider.start(vehiclePositionQueue::offer, vehicleMetadata -> vehicleMetadatas.put(vehicleMetadata.getId(), vehicleMetadata), this::onError);
         hfpPublisher.connect(() -> {}, this::onError);
 
         while (true) {
@@ -78,30 +83,33 @@ public class SuomenlinnaHfpProducer {
                 });
                 LOG.info("Stopping program..");
                 gtfsProvider.stop();
-                vesselLocationProvider.stop();
+                vehiclePositionProvider.stop();
                 hfpPublisher.disconnect();
                 break;
             }
 
             try {
-                VesselLocation vesselLocation = vesselLocationQueue.take();
-
+                VehiclePosition vehiclePosition = vehiclePositionQueue.take();
 
                 if (tripProcessor.hasGtfsData()) {
-                    VehicleId vehicleId = mmsiToVehicleId.get(String.valueOf(vesselLocation.mmsi));
-                    VesselMetadata vesselMetadata = vesselMetadatas.get(vesselLocation.mmsi);
+                    VehicleId vehicleId = vehicleIdMap.get(vehiclePosition.getId());
+                    if (vehicleId == null) {
+                        continue;
+                    }
 
-                    tripProcessor.processVehiclePosition(vehicleId, vesselLocation.coordinates, vesselLocation.properties.timestamp);
+                    VehicleMetadata vehicleMetadata = vehicleMetadatas.get(vehiclePosition.getId());
+
+                    tripProcessor.processVehiclePosition(vehicleId, vehiclePosition.getCoordinates(), vehiclePosition.getTimestamp());
 
                     TripDescriptor tripDescriptor = tripProcessor.getRegisteredTrip(vehicleId);
 
-                    String tst = HfpUtils.formatTst(vesselLocation.properties.timestamp);
+                    String tst = HfpUtils.formatTst(vehiclePosition.getTimestamp());
                     //HFP timestamp is in seconds
-                    int tsi = (int)(vesselLocation.properties.timestamp / 1000L);
-                    //Convert vessel speed to metres per second
-                    double spd = SpeedUtils.knotsToMetresPerSecond(vesselLocation.properties.speed);
-                    //If vessel heading is not available (special value 511), use vessel course for heading
-                    int hdg = (int)Math.round(Math.round(vesselLocation.properties.heading) == 511 ? vesselLocation.properties.course : vesselLocation.properties.heading);
+                    int tsi = (int)(vehiclePosition.getTimestamp() / 1000L);
+                    //Speed in metres per second
+                    double spd = vehiclePosition.getSpeed();
+                    //Heading in degrees from north
+                    int hdg = (int)Math.round(vehiclePosition.getHeading());
 
                     if (tripDescriptor != null) {
                         NavigableMap<StopTime, Stop> currentAndNextStops = tripProcessor.getCurrentAndNextStops(vehicleId);
@@ -114,26 +122,26 @@ public class SuomenlinnaHfpProducer {
                         String nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
                                 nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
 
-                        int geohashLevel = geohashLevelCalculator.getGeohashLevel(vehicleId, vesselLocation.coordinates, tripDescriptor, nextStopId);
+                        int geohashLevel = geohashLevelCalculator.getGeohashLevel(vehicleId, vehiclePosition.getCoordinates(), tripDescriptor, nextStopId);
 
                         Topic topic = new Topic(Topic.HFP_V2_PREFIX, Topic.JourneyType.JOURNEY, Topic.TemporalType.ONGOING, Topic.EventType.VP,
-                                Topic.TransportMode.FERRY, vehicleId, tripDescriptor, nextStopId, geohashLevel,
-                                new Geohash(vesselLocation.coordinates.getLatitude(), vesselLocation.coordinates.getLongitude()));
+                                transportMode, vehicleId, tripDescriptor, nextStopId, geohashLevel,
+                                new Geohash(vehiclePosition.getCoordinates().getLatitude(), vehiclePosition.getCoordinates().getLongitude()));
 
                         Payload payload = new Payload(tripDescriptor.routeName, tripDescriptor.directionId, vehicleId.operatorId, vehicleId.vehicleId,
                                 tst, tsi, spd, hdg,
-                                vesselLocation.coordinates.getLatitude(), vesselLocation.coordinates.getLongitude(), null, null, null, null,
+                                vehiclePosition.getCoordinates().getLatitude(), vehiclePosition.getCoordinates().getLongitude(), null, null, null, null,
                                 tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", isAtCurrentStop ? currentStop.getValue().getId() : null,
-                                tripDescriptor.routeId, 0, vesselMetadata != null ? vesselMetadata.name : null);
+                                tripDescriptor.routeId, 0, vehicleMetadata != null ? vehicleMetadata.getLabel() : null);
 
                         hfpPublisher.publish(topic, payload);
                     } else {
-                        Topic topic = new Topic(Topic.HFP_V2_PREFIX, Topic.JourneyType.DEADRUN, Topic.TemporalType.ONGOING, Topic.EventType.VP, Topic.TransportMode.FERRY, vehicleId);
+                        Topic topic = new Topic(Topic.HFP_V2_PREFIX, Topic.JourneyType.DEADRUN, Topic.TemporalType.ONGOING, Topic.EventType.VP, transportMode, vehicleId);
 
                         Payload payload = new Payload(null, null, vehicleId.operatorId, vehicleId.vehicleId, tst, tsi, spd, hdg,
-                                vesselLocation.coordinates.getLatitude(), vesselLocation.coordinates.getLongitude(),
+                                vehiclePosition.getCoordinates().getLatitude(), vehiclePosition.getCoordinates().getLongitude(),
                                 null, null, null, null, null, null, null, null, "GPS",
-                                null, null, null, vesselMetadata != null ? vesselMetadata.name : null);
+                                null, null, null, vehicleMetadata != null ? vehicleMetadata.getLabel() : null);
 
                         hfpPublisher.publish(topic, payload);
                     }

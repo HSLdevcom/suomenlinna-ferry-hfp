@@ -110,7 +110,7 @@ public class Topic {
     }
 
     public enum TransportMode {
-        BUS, TRAM, TRAIN, FERRY, METRO;
+        BUS, TRAM, TRAIN, FERRY, METRO, ROBOT;
 
         @Override
         public String toString() {
