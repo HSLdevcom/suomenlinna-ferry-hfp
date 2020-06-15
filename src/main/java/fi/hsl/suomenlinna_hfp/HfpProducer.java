@@ -106,8 +106,12 @@ public class HfpProducer {
                     tripProcessor.processVehiclePosition(vehicleId, vehiclePosition.getCoordinates(), vehiclePosition.getTimestamp());
 
                     TripDescriptor tripDescriptor = tripProcessor.getRegisteredTrip(vehicleId);
+                    boolean registeredForTrip = tripDescriptor != null;
+
                     if (tripDescriptor == null) {
                         tripDescriptor = getPetitionTripDescriptor(vehiclePosition);
+                        //Not registered to an actual trip
+                        registeredForTrip = false;
                     }
 
                     String tst = HfpUtils.formatTst(vehiclePosition.getTimestamp());
@@ -119,15 +123,22 @@ public class HfpProducer {
                     int hdg = (int)Math.round(vehiclePosition.getHeading());
 
                     if (tripDescriptor != null) {
-                        NavigableMap<StopTime, Stop> currentAndNextStops = tripProcessor.getCurrentAndNextStops(vehicleId);
+                        boolean isAtCurrentStop = false;
+                        Map.Entry<StopTime, Stop> currentStop = null;
+                        String nextStopId = "";
 
-                        Map.Entry<StopTime, Stop> currentStop = currentAndNextStops.firstEntry();
-                        Map.Entry<StopTime, Stop> nextStop = currentAndNextStops.higherEntry(currentAndNextStops.firstKey());
+                        if (registeredForTrip) {
+                            NavigableMap<StopTime, Stop> currentAndNextStops = tripProcessor.getCurrentAndNextStops(vehicleId);
 
-                        boolean isAtCurrentStop = tripProcessor.isAtCurrentStop(vehicleId);
+                            currentStop = currentAndNextStops.firstEntry();
+                            Map.Entry<StopTime, Stop> nextStop = currentAndNextStops.higherEntry(currentAndNextStops.firstKey());
 
-                        String nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
-                                nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
+                            isAtCurrentStop = tripProcessor.isAtCurrentStop(vehicleId);
+
+                            nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
+                                    nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
+                        }
+
 
                         int geohashLevel = geohashLevelCalculator.getGeohashLevel(vehicleId, vehiclePosition.getCoordinates(), tripDescriptor, nextStopId);
 
