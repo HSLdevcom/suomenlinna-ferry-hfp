@@ -91,6 +91,10 @@ public class PollingVehicleStateProvider extends VehicleStateProvider {
 
                 final VehicleState[] vehicleStates = objectMapper.readValue(response.body(), VehicleState[].class);
                 for (VehicleState vehicleState : vehicleStates) {
+                    if (!"connected".equals(vehicleState.connection)) {
+                        //Ignore vehicle positions if vehicle is not connected to the API
+                        continue;
+                    }
                     onVehicleState.accept(vehicleState);
                 }
 
