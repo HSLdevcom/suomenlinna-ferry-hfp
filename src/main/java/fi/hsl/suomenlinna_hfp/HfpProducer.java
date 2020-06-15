@@ -12,13 +12,17 @@ import fi.hsl.suomenlinna_hfp.hfp.model.*;
 import fi.hsl.suomenlinna_hfp.hfp.publisher.HfpPublisher;
 import fi.hsl.suomenlinna_hfp.hfp.utils.GeohashLevelCalculator;
 import fi.hsl.suomenlinna_hfp.hfp.utils.HfpUtils;
+import fi.hsl.suomenlinna_hfp.sbdrive.model.VehicleState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.NavigableMap;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -102,6 +106,9 @@ public class HfpProducer {
                     tripProcessor.processVehiclePosition(vehicleId, vehiclePosition.getCoordinates(), vehiclePosition.getTimestamp());
 
                     TripDescriptor tripDescriptor = tripProcessor.getRegisteredTrip(vehicleId);
+                    if (tripDescriptor == null) {
+                        tripDescriptor = getPetitionTripDescriptor(vehiclePosition);
+                    }
 
                     String tst = HfpUtils.formatTst(vehiclePosition.getTimestamp());
                     //HFP timestamp is in seconds
@@ -152,5 +159,30 @@ public class HfpProducer {
                 LOG.warn("Thread interrupted, possibly because an error occured?", e);
             }
         }
+    }
+
+    //"Hack" to generate trip descriptors for robot bus 29R when it is running only when requested
+    //TODO: remove this after robot bus 29R is no longer running or figure out a better way to do this
+    private static TripDescriptor getPetitionTripDescriptor(VehiclePosition vehiclePosition) {
+        if (vehiclePosition instanceof VehicleState) {
+            VehicleState vehicleState = (VehicleState) vehiclePosition;
+
+            if (vehicleState.canReceivePetitions) {
+                LocalDateTime dateTime = Instant.ofEpochMilli(vehicleState.timestamp).atZone(ZoneId.of("Europe/Helsinki")).toLocalDateTime();
+
+                LocalTime petitionStartTimeMorning = LocalTime.of(9, 55);
+                LocalTime petitionEndTimeMorning = LocalTime.of(10, 50);
+                LocalTime petitionStartTimeAfternoon = LocalTime.of(12, 30);
+                LocalTime petitionEndTimeAfternoon = LocalTime.of(13, 20);
+
+                if (dateTime.toLocalTime().isAfter(petitionStartTimeMorning) && dateTime.toLocalTime().isBefore(petitionEndTimeMorning)) {
+                    return new TripDescriptor("1029R", "29R", dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE), petitionStartTimeMorning.format(DateTimeFormatter.ISO_LOCAL_TIME), "1", "Messukeskus");
+                } else if (dateTime.toLocalTime().isAfter(petitionStartTimeAfternoon) && dateTime.toLocalTime().isBefore(petitionEndTimeAfternoon)) {
+                    return new TripDescriptor("1029R", "29R", dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE), petitionStartTimeAfternoon.format(DateTimeFormatter.ISO_LOCAL_TIME), "1", "Messukeskus");
+                }
+            }
+        }
+
+        return null;
     }
 }
