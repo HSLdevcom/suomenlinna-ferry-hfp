@@ -102,7 +102,7 @@ public class Main {
         public static ConfigType getByName(String name) {
             try {
                 return ConfigType.valueOf(name);
-            } catch (IllegalArgumentException iae) {
+            } catch (NullPointerException | IllegalArgumentException e) {
                 return ConfigType.SUOMENLINNA;
             }
         }
