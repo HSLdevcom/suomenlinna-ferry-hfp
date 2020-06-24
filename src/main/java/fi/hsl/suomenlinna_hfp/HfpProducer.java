@@ -178,7 +178,8 @@ public class HfpProducer {
         if (vehiclePosition instanceof VehicleState) {
             VehicleState vehicleState = (VehicleState) vehiclePosition;
 
-            if (vehicleState.canReceivePetitions) {
+            //Values for 'can_receive_petitions' seem to be incorrect
+            //if (vehicleState.canReceivePetitions) {
                 LocalDateTime dateTime = Instant.ofEpochMilli(vehicleState.timestamp).atZone(ZoneId.of("Europe/Helsinki")).toLocalDateTime();
 
                 LocalTime petitionStartTimeMorning = LocalTime.of(9, 55);
@@ -191,7 +192,7 @@ public class HfpProducer {
                 } else if (dateTime.toLocalTime().isAfter(petitionStartTimeAfternoon) && dateTime.toLocalTime().isBefore(petitionEndTimeAfternoon)) {
                     return new TripDescriptor("1029R", "29R", dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE), petitionStartTimeAfternoon.format(DateTimeFormatter.ISO_LOCAL_TIME), "1", "Messukeskus");
                 }
-            }
+            //}
         }
 
         return null;
