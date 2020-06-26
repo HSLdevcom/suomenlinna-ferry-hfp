@@ -180,7 +180,7 @@ public class HfpProducer {
 
             //Values for 'can_receive_petitions' seem to be incorrect
             //if (vehicleState.canReceivePetitions) {
-                LocalDateTime dateTime = Instant.ofEpochMilli(vehicleState.timestamp).atZone(ZoneId.of("Europe/Helsinki")).toLocalDateTime();
+                LocalDateTime dateTime = Instant.ofEpochSecond(vehicleState.timestamp).atZone(ZoneId.of("Europe/Helsinki")).toLocalDateTime();
 
                 LocalTime petitionStartTimeMorning = LocalTime.of(9, 55);
                 LocalTime petitionEndTimeMorning = LocalTime.of(10, 50);
@@ -188,9 +188,19 @@ public class HfpProducer {
                 LocalTime petitionEndTimeAfternoon = LocalTime.of(13, 20);
 
                 if (dateTime.toLocalTime().isAfter(petitionStartTimeMorning) && dateTime.toLocalTime().isBefore(petitionEndTimeMorning)) {
-                    return new TripDescriptor("1029R", "29R", dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE), petitionStartTimeMorning.format(DateTimeFormatter.ISO_LOCAL_TIME), "1", "Messukeskus");
+                    return new TripDescriptor("1029R",
+                            "29R",
+                            dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE),
+                            petitionStartTimeMorning.format(DateTimeFormatter.ISO_LOCAL_TIME).substring(0, 5),
+                            "1",
+                            "Messukeskus");
                 } else if (dateTime.toLocalTime().isAfter(petitionStartTimeAfternoon) && dateTime.toLocalTime().isBefore(petitionEndTimeAfternoon)) {
-                    return new TripDescriptor("1029R", "29R", dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE), petitionStartTimeAfternoon.format(DateTimeFormatter.ISO_LOCAL_TIME), "1", "Messukeskus");
+                    return new TripDescriptor("1029R",
+                            "29R",
+                            dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE),
+                            petitionStartTimeAfternoon.format(DateTimeFormatter.ISO_LOCAL_TIME).substring(0, 5),
+                            "1",
+                            "Messukeskus");
                 }
             //}
         }
