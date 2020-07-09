@@ -92,7 +92,7 @@ public class GtfsParser {
 
     private static Function<CSVRecord, Stop> parseStops(Collection<String> stopIds) {
         return csvRecord -> {
-            Stop stop = new Stop(csvRecord.get("stop_id"), new LatLng(Double.parseDouble(csvRecord.get("stop_lat")), Double.parseDouble(csvRecord.get("stop_lon"))));
+            Stop stop = new Stop(csvRecord.get("stop_id"), csvRecord.get("stop_code"), new LatLng(Double.parseDouble(csvRecord.get("stop_lat")), Double.parseDouble(csvRecord.get("stop_lon"))));
 
             return stopIds == null || stopIds.contains(stop.getId()) ? stop : null;
         };
