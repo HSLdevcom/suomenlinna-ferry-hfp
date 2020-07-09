@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
+import static fi.hsl.suomenlinna_hfp.common.utils.TimeUtils.parseTime;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class GtfsParser {
@@ -120,14 +121,6 @@ public class GtfsParser {
 
             return routeIds == null || routeIds.contains(trip.getRouteId()) ? trip : null;
         };
-    }
-
-    private static Integer parseTime(String gtfsTime) {
-        String[] parts = gtfsTime.split(":");
-        if (parts.length != 3) {
-            throw new IllegalArgumentException("Invalid time format: "+gtfsTime);
-        }
-        return Integer.parseInt(parts[0]) * 60 * 60 + Integer.parseInt(parts[1]) * 60 + Integer.parseInt(parts[2]);
     }
 
     private static <T> List<T> parseCSVFromZipFile(ZipFile zipFile, String entryName, Function<CSVRecord, T> mapper) throws IOException {
