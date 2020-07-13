@@ -1,8 +1,10 @@
 package fi.hsl.suomenlinna_hfp;
 
+import fi.hsl.suomenlinna_hfp.common.PassengerCountProvider;
 import fi.hsl.suomenlinna_hfp.common.VehiclePositionProvider;
 import fi.hsl.suomenlinna_hfp.common.model.VehicleMetadata;
 import fi.hsl.suomenlinna_hfp.common.model.VehiclePosition;
+import fi.hsl.suomenlinna_hfp.common.utils.MathUtils;
 import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
 import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
@@ -21,7 +23,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -37,6 +38,7 @@ public class HfpProducer {
 
     private final GtfsProvider gtfsProvider;
     private final VehiclePositionProvider vehiclePositionProvider;
+    private final PassengerCountProvider passengerCountProvider;
     private final HfpPublisher hfpPublisher;
 
     private final BlockingQueue<Throwable> errorQueue = new LinkedBlockingQueue<>();
@@ -48,12 +50,13 @@ public class HfpProducer {
 
     private Thread thread;
 
-    public HfpProducer(Topic.TransportMode transportMode, Map<String, VehicleId> vehicleIdMap, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VehiclePositionProvider vehiclePositionProvider, HfpPublisher hfpPublisher) {
+    public HfpProducer(Topic.TransportMode transportMode, Map<String, VehicleId> vehicleIdMap, TripProcessor tripProcessor, GtfsProvider gtfsProvider, VehiclePositionProvider vehiclePositionProvider, PassengerCountProvider passengerCountProvider, HfpPublisher hfpPublisher) {
         this.transportMode = transportMode;
         this.vehicleIdMap = vehicleIdMap;
         this.tripProcessor = tripProcessor;
         this.gtfsProvider = gtfsProvider;
         this.vehiclePositionProvider = vehiclePositionProvider;
+        this.passengerCountProvider = passengerCountProvider;
         this.hfpPublisher = hfpPublisher;
     }
 
@@ -105,10 +108,11 @@ public class HfpProducer {
 
                     tripProcessor.processVehiclePosition(vehicleId, vehiclePosition.getCoordinates(), vehiclePosition.getTimestamp());
 
-                    TripDescriptor tripDescriptor = tripProcessor.getRegisteredTrip(vehicleId);
-                    boolean registeredForTrip = tripDescriptor != null;
+                    TripProcessor.TripAndRouteWithStopTimes trip = tripProcessor.getRegisteredTrip(vehicleId);
+                    TripDescriptor tripDescriptor = trip != null ? trip.getTripDescriptor() : null;
+                    boolean registeredForTrip = trip != null;
 
-                    if (tripDescriptor == null) {
+                    if (trip == null) {
                         tripDescriptor = getPetitionTripDescriptor(vehiclePosition);
                         //Not registered to an actual trip
                         registeredForTrip = false;
@@ -123,6 +127,8 @@ public class HfpProducer {
                     int hdg = (int)Math.round(vehiclePosition.getHeading());
 
                     if (tripDescriptor != null) {
+                        Optional<Integer> occu = getPassengerCount(trip);
+
                         boolean isAtCurrentStop = false;
                         Map.Entry<StopTime, Stop> currentStop = null;
                         String nextStopId = "";
@@ -150,7 +156,7 @@ public class HfpProducer {
                                 tst, tsi, spd, hdg,
                                 vehiclePosition.getCoordinates().getLatitude(), vehiclePosition.getCoordinates().getLongitude(), null, null, null, null,
                                 tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", isAtCurrentStop ? currentStop.getValue().getId() : null,
-                                tripDescriptor.routeId, 0, vehicleMetadata != null ? vehicleMetadata.getLabel() : null);
+                                tripDescriptor.routeId, occu.orElse(0), vehicleMetadata != null ? vehicleMetadata.getLabel() : null);
 
                         hfpPublisher.publish(topic, payload);
                     } else {
@@ -169,6 +175,22 @@ public class HfpProducer {
             } catch (InterruptedException e) {
                 LOG.warn("Thread interrupted, possibly because an error occured?", e);
             }
+        }
+    }
+
+    private Optional<Integer> getPassengerCount(TripProcessor.TripAndRouteWithStopTimes trip) {
+        final String stopCode = trip.stops.get(trip.getFirstStopTime().getStopId()).getCode();
+        try {
+            //Passenger count as percentage, 0-100
+            final Optional<Integer> occu = passengerCountProvider == null ?
+                    Optional.empty() :
+                    Optional.ofNullable(passengerCountProvider.getPassengerCountByStartTimeAndStopCode(trip.getStartTime(), stopCode))
+                            .map(passengerCount -> MathUtils.clamp(passengerCount.getPercentage(), 0, 1))
+                            .map(MathUtils::percentageAsInteger);
+            return occu;
+        } catch (Throwable throwable) {
+            LOG.warn("Failed to fetch passenger count", throwable);
+            return Optional.empty();
         }
     }
 

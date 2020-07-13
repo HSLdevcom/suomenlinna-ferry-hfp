@@ -1,6 +1,7 @@
 package fi.hsl.suomenlinna_hfp;
 
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
+import fi.hsl.suomenlinna_hfp.common.utils.TimeUtils;
 import fi.hsl.suomenlinna_hfp.gtfs.model.Route;
 import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
 import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
@@ -14,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
@@ -21,8 +23,6 @@ import java.util.stream.Collectors;
 
 public class TripProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(TripProcessor.class);
-
-    private static final int ONE_DAY_IN_SECONDS = 24 * 60 * 60;
 
     private Map<VehicleId, TripAndRouteWithStopTimes> registeredTrips = new HashMap<>();
     //Time when vehicle registered for the trip
@@ -90,16 +90,8 @@ public class TripProcessor {
                                     value = new TreeMap<>();
                                 }
 
-                                ZonedDateTime startTime;
-
                                 int departureTimeSeconds = stopTimes.first().getDepartureTime();
-                                if (departureTimeSeconds >= ONE_DAY_IN_SECONDS) {
-                                    //If the trip starts at or after midnight add one day to date and minus one day in seconds from start time
-                                    //This is needed to get the start time for correct date
-                                    startTime = date.plusDays(1).atTime(LocalTime.ofSecondOfDay(departureTimeSeconds - ONE_DAY_IN_SECONDS)).atZone(timezone);
-                                } else {
-                                    startTime = date.atTime(LocalTime.ofSecondOfDay(departureTimeSeconds)).atZone(timezone);
-                                }
+                                ZonedDateTime startTime = TimeUtils.gtfsTimeToLocalDateTime(date, departureTimeSeconds).atZone(timezone);
 
                                 value.put(startTime, new TripAndRouteWithStopTimes(trip,
                                         gtfsIndex.routesById.get(trip.getRouteId()),
@@ -119,9 +111,8 @@ public class TripProcessor {
         }
     }
 
-    public TripDescriptor getRegisteredTrip(VehicleId vehicleId) {
-        TripAndRouteWithStopTimes trip = registeredTrips.get(vehicleId);
-        return trip != null ? trip.getTripDescriptor() : null;
+    public TripAndRouteWithStopTimes getRegisteredTrip(VehicleId vehicleId) {
+        return registeredTrips.get(vehicleId);
     }
 
     public boolean isAtCurrentStop(VehicleId vehicleId) {
@@ -297,14 +288,14 @@ public class TripProcessor {
         }
     }
 
-    private static class TripAndRouteWithStopTimes {
-        private final Trip trip;
-        private final Route route;
-        private final LocalDate operatingDate;
-        private final NavigableMap<Integer, StopTime> stopTimes;
-        private final Map<String, Stop> stops;
+    public static class TripAndRouteWithStopTimes {
+        public final Trip trip;
+        public final Route route;
+        public final LocalDate operatingDate;
+        public final NavigableMap<Integer, StopTime> stopTimes;
+        public final Map<String, Stop> stops;
 
-        public TripAndRouteWithStopTimes(Trip trip, Route route, LocalDate operatingDate, Set<StopTime> stopTimes, Set<Stop> stops) {
+        private TripAndRouteWithStopTimes(Trip trip, Route route, LocalDate operatingDate, Set<StopTime> stopTimes, Set<Stop> stops) {
             this.trip = trip;
             this.route = route;
             this.operatingDate = operatingDate;
@@ -312,13 +303,23 @@ public class TripProcessor {
             this.stops = stops.stream().collect(Collectors.toMap(Stop::getId, Function.identity()));
         }
 
+        public StopTime getFirstStopTime() {
+            return stopTimes.firstEntry().getValue();
+        }
+
+        public LocalDateTime getStartTime() {
+            return TimeUtils.gtfsTimeToLocalDateTime(operatingDate, getFirstStopTime().getDepartureTime());
+        }
+
         public TripDescriptor getTripDescriptor() {
-            return new TripDescriptor(route.getId(),
+            return new TripDescriptor(
+                    route.getId(),
                     route.getShortName(),
-                    operatingDate.toString(),
-                    HfpUtils.formatStartTime(stopTimes.firstEntry().getValue().getDepartureTime()),
+                    operatingDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                    HfpUtils.formatStartTime(getFirstStopTime().getDepartureTime()),
                     String.valueOf(trip.getDirectionId() + 1),
-                    trip.getHeadsign());
+                    trip.getHeadsign()
+            );
         }
     }
 }

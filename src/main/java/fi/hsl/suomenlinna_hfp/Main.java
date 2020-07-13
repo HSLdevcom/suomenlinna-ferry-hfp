@@ -1,21 +1,30 @@
 package fi.hsl.suomenlinna_hfp;
 
-import com.typesafe.config.*;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import fi.hsl.suomenlinna_hfp.common.PassengerCountProvider;
 import fi.hsl.suomenlinna_hfp.common.VehiclePositionProvider;
-import fi.hsl.suomenlinna_hfp.digitraffic.provider.*;
-import fi.hsl.suomenlinna_hfp.gtfs.provider.*;
-import fi.hsl.suomenlinna_hfp.health.*;
-import fi.hsl.suomenlinna_hfp.hfp.model.*;
-import fi.hsl.suomenlinna_hfp.hfp.publisher.*;
+import fi.hsl.suomenlinna_hfp.digitraffic.provider.MqttVesselLocationProvider;
+import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
+import fi.hsl.suomenlinna_hfp.gtfs.provider.HttpGtfsProvider;
+import fi.hsl.suomenlinna_hfp.health.HealthNotificationService;
+import fi.hsl.suomenlinna_hfp.health.HealthServer;
+import fi.hsl.suomenlinna_hfp.hfp.model.Topic;
+import fi.hsl.suomenlinna_hfp.hfp.model.VehicleId;
+import fi.hsl.suomenlinna_hfp.hfp.publisher.MqttHfpPublisher;
+import fi.hsl.suomenlinna_hfp.lati.provider.LatiPassengerCountProvider;
 import fi.hsl.suomenlinna_hfp.sbdrive.provider.PollingVehicleStateProvider;
 
-import java.io.*;
-import java.net.http.*;
-import java.time.*;
-import java.time.temporal.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.stream.*;
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.time.Duration;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class Main {
     public static void main(String[] args) throws Throwable {
@@ -51,6 +60,7 @@ public class Main {
         Map<String, VehicleId> vehicleIdMap = null;
         Topic.TransportMode transportMode = null;
         VehiclePositionProvider vehiclePositionProvider = null;
+        PassengerCountProvider passengerCountProvider = null;
 
         switch (configType) {
             case SUOMENLINNA:
@@ -63,6 +73,21 @@ public class Main {
 
                 transportMode = Topic.TransportMode.FERRY;
                 vehiclePositionProvider = new MqttVesselLocationProvider(meriDigitrafficBroker, meriDigitrafficUser, meriDigitrafficPassword, vehicleIdMap.keySet());
+
+                if (config.getBoolean("passengerCount.enabled")) {
+                    Map<String, String> vesselNameToMmsi = new HashMap<>();
+                    Map<String, Integer> mmsiToMaxPassengerCount = new HashMap<>();
+                    config.getConfigList("passengerCount.vessels").forEach(c -> {
+                        String mmsi = c.getString("mmsi");
+
+                        String vesselName = c.getString("name");
+                        vesselNameToMmsi.put(vesselName, mmsi);
+                        int maxPassengerCount = c.getInt("maxPassengers");
+                        mmsiToMaxPassengerCount.put(mmsi, maxPassengerCount);
+                    });
+
+                    passengerCountProvider = new LatiPassengerCountProvider(httpClient, null, vesselNameToMmsi, mmsiToMaxPassengerCount);
+                }
 
                 break;
             case SBDRIVE:
@@ -87,7 +112,7 @@ public class Main {
             }
         }
 
-        new HfpProducer(transportMode, vehicleIdMap, tripProcessor, gtfsProvider, vehiclePositionProvider, mqttHfpPublisher).run();
+        new HfpProducer(transportMode, vehicleIdMap, tripProcessor, gtfsProvider, vehiclePositionProvider, passengerCountProvider, mqttHfpPublisher).run();
     }
 
     private enum ConfigType {
