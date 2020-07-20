@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 public class LatiPassengerCountProvider implements PassengerCountProvider {
     private static final Pattern FIRST_NUMBERS_PATTERN = Pattern.compile("\\d+");
 
-    private static final String API = "/lati/departure?date=%s&stop=%s";
+    private static final String API = "/lati/departure?date=%s&stop=%s&variables=NOUSIJAT&variables=ALUS";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
