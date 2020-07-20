@@ -75,6 +75,8 @@ public class Main {
                 vehiclePositionProvider = new MqttVesselLocationProvider(meriDigitrafficBroker, meriDigitrafficUser, meriDigitrafficPassword, vehicleIdMap.keySet());
 
                 if (config.getBoolean("passengerCount.enabled")) {
+                    String endpoint = config.getString("passengerCount.endpoint");
+
                     Map<String, String> vesselNameToMmsi = new HashMap<>();
                     Map<String, Integer> mmsiToMaxPassengerCount = new HashMap<>();
                     config.getConfigList("passengerCount.vessels").forEach(c -> {
@@ -86,7 +88,7 @@ public class Main {
                         mmsiToMaxPassengerCount.put(mmsi, maxPassengerCount);
                     });
 
-                    passengerCountProvider = new LatiPassengerCountProvider(httpClient, null, vesselNameToMmsi, mmsiToMaxPassengerCount);
+                    passengerCountProvider = new LatiPassengerCountProvider(httpClient, endpoint, vesselNameToMmsi, mmsiToMaxPassengerCount);
                 }
 
                 break;
