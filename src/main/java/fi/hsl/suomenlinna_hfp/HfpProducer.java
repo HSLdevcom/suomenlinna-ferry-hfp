@@ -2,6 +2,7 @@ package fi.hsl.suomenlinna_hfp;
 
 import fi.hsl.suomenlinna_hfp.common.PassengerCountProvider;
 import fi.hsl.suomenlinna_hfp.common.VehiclePositionProvider;
+import fi.hsl.suomenlinna_hfp.common.model.PassengerCount;
 import fi.hsl.suomenlinna_hfp.common.model.VehicleMetadata;
 import fi.hsl.suomenlinna_hfp.common.model.VehiclePosition;
 import fi.hsl.suomenlinna_hfp.common.utils.MathUtils;
@@ -26,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class HfpProducer {
@@ -127,7 +129,8 @@ public class HfpProducer {
                     int hdg = (int)Math.round(vehiclePosition.getHeading());
 
                     if (tripDescriptor != null) {
-                        Optional<Integer> occu = getPassengerCount(trip);
+                        //Get passenger count for the trip
+                        OptionalInt occu = getPassengerCount(trip);
 
                         boolean isAtCurrentStop = false;
                         Map.Entry<StopTime, Stop> currentStop = null;
@@ -178,19 +181,36 @@ public class HfpProducer {
         }
     }
 
-    private Optional<Integer> getPassengerCount(TripProcessor.TripAndRouteWithStopTimes trip) {
-        final String stopCode = trip.stops.get(trip.getFirstStopTime().getStopId()).getCode();
-        try {
-            //Passenger count as percentage, 0-100
-            final Optional<Integer> occu = passengerCountProvider == null ?
-                    Optional.empty() :
-                    Optional.ofNullable(passengerCountProvider.getPassengerCountByStartTimeAndStopCode(trip.getStartTime(), stopCode))
-                            .map(passengerCount -> MathUtils.clamp(passengerCount.getPercentage(), 0, 1))
-                            .map(MathUtils::percentageAsInteger);
-            return occu;
-        } catch (Throwable throwable) {
-            LOG.warn("Failed to fetch passenger count", throwable);
-            return Optional.empty();
+
+    /**
+     * Gets passenger count for the trip asynchronously. Returns empty value if operation is not yet completed
+     * @param trip
+     */
+    private OptionalInt getPassengerCount(TripProcessor.TripAndRouteWithStopTimes trip) {
+        if (passengerCountProvider != null) {
+            final String stopCode = trip.stops.get(trip.getFirstStopTime().getStopId()).getCode();
+            final CompletableFuture<PassengerCount> passengerCountFuture = passengerCountProvider.getPassengerCountByStartTimeAndStopCode(trip.getStartTime(), stopCode);
+
+            if (passengerCountFuture.isDone()) {
+                try {
+                    final PassengerCount passengerCount = passengerCountFuture.join();
+                    if (passengerCount == null) {
+                        return OptionalInt.empty();
+                    }
+
+                    final int passengerCountAsPercentage = MathUtils.percentageAsInteger(MathUtils.clamp(passengerCount.getPercentage(), 0, 1));
+
+                    return OptionalInt.of(passengerCountAsPercentage);
+                } catch (Throwable throwable) {
+                    LOG.warn("Failed to fetch passenger count", throwable);
+                    return OptionalInt.empty();
+                }
+            } else {
+                //Passenger count not available yet
+                return OptionalInt.empty();
+            }
+        } else {
+            return OptionalInt.empty();
         }
     }
 
