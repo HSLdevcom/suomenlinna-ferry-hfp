@@ -3,9 +3,9 @@ package fi.hsl.suomenlinna_hfp.common.model;
 import java.util.Objects;
 
 public class PassengerCount {
-    private String vehicleId;
-    private int currentPassengers;
-    private int maxPassengers;
+    public final String vehicleId;
+    public final int currentPassengers;
+    public final int maxPassengers;
 
     public PassengerCount(String vehicleId, int currentPassengers, int maxPassengers) {
         this.vehicleId = vehicleId;
