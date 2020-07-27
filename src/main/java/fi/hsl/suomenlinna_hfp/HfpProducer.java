@@ -112,13 +112,6 @@ public class HfpProducer {
 
                     TripProcessor.TripAndRouteWithStopTimes trip = tripProcessor.getRegisteredTrip(vehicleId);
                     TripDescriptor tripDescriptor = trip != null ? trip.getTripDescriptor() : null;
-                    boolean registeredForTrip = trip != null;
-
-                    if (trip == null) {
-                        tripDescriptor = getPetitionTripDescriptor(vehiclePosition);
-                        //Not registered to an actual trip
-                        registeredForTrip = false;
-                    }
 
                     String tst = HfpUtils.formatTst(vehiclePosition.getTimestamp());
                     //HFP timestamp is in seconds
@@ -132,22 +125,15 @@ public class HfpProducer {
                         //Get passenger count for the trip
                         OptionalInt occu = getPassengerCount(trip);
 
-                        boolean isAtCurrentStop = false;
-                        Map.Entry<StopTime, Stop> currentStop = null;
-                        String nextStopId = "";
+                        NavigableMap<StopTime, Stop> currentAndNextStops = tripProcessor.getCurrentAndNextStops(vehicleId);
 
-                        if (registeredForTrip) {
-                            NavigableMap<StopTime, Stop> currentAndNextStops = tripProcessor.getCurrentAndNextStops(vehicleId);
+                        Map.Entry<StopTime, Stop> currentStop = currentAndNextStops.firstEntry();
+                        Map.Entry<StopTime, Stop> nextStop = currentAndNextStops.higherEntry(currentAndNextStops.firstKey());
 
-                            currentStop = currentAndNextStops.firstEntry();
-                            Map.Entry<StopTime, Stop> nextStop = currentAndNextStops.higherEntry(currentAndNextStops.firstKey());
+                        boolean isAtCurrentStop = tripProcessor.isAtCurrentStop(vehicleId);
 
-                            isAtCurrentStop = tripProcessor.isAtCurrentStop(vehicleId);
-
-                            nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
-                                    nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
-                        }
-
+                        String nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
+                                nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
 
                         int geohashLevel = geohashLevelCalculator.getGeohashLevel(vehicleId, vehiclePosition.getCoordinates(), tripDescriptor, nextStopId);
 
@@ -212,41 +198,5 @@ public class HfpProducer {
         } else {
             return OptionalInt.empty();
         }
-    }
-
-    //"Hack" to generate trip descriptors for robot bus 29R when it is running only when requested
-    //TODO: remove this after robot bus 29R is no longer running or figure out a better way to do this
-    private static TripDescriptor getPetitionTripDescriptor(VehiclePosition vehiclePosition) {
-        if (vehiclePosition instanceof VehicleState) {
-            VehicleState vehicleState = (VehicleState) vehiclePosition;
-
-            //Values for 'can_receive_petitions' seem to be incorrect
-            //if (vehicleState.canReceivePetitions) {
-                LocalDateTime dateTime = Instant.ofEpochSecond(vehicleState.timestamp).atZone(ZoneId.of("Europe/Helsinki")).toLocalDateTime();
-
-                LocalTime petitionStartTimeMorning = LocalTime.of(9, 55);
-                LocalTime petitionEndTimeMorning = LocalTime.of(10, 50);
-                LocalTime petitionStartTimeAfternoon = LocalTime.of(12, 30);
-                LocalTime petitionEndTimeAfternoon = LocalTime.of(13, 20);
-
-                if (dateTime.toLocalTime().isAfter(petitionStartTimeMorning) && dateTime.toLocalTime().isBefore(petitionEndTimeMorning)) {
-                    return new TripDescriptor("1029R",
-                            "29R",
-                            dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE),
-                            petitionStartTimeMorning.format(DateTimeFormatter.ISO_LOCAL_TIME).substring(0, 5),
-                            "1",
-                            "Messukeskus");
-                } else if (dateTime.toLocalTime().isAfter(petitionStartTimeAfternoon) && dateTime.toLocalTime().isBefore(petitionEndTimeAfternoon)) {
-                    return new TripDescriptor("1029R",
-                            "29R",
-                            dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE),
-                            petitionStartTimeAfternoon.format(DateTimeFormatter.ISO_LOCAL_TIME).substring(0, 5),
-                            "1",
-                            "Messukeskus");
-                }
-            //}
-        }
-
-        return null;
     }
 }
