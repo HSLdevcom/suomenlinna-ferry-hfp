@@ -1,8 +1,10 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.provider;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselLocation;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselMetadata;
+import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselsStatus;
 import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +18,7 @@ import java.util.function.Consumer;
 public class MqttVesselLocationProvider extends VesselLocationProvider {
     private static final Logger LOG = LoggerFactory.getLogger(MqttVesselLocationProvider.class);
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final String brokerUri;
     private final String username;
@@ -74,6 +76,7 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
 
                 try {
                     mqttAsyncClient.subscribe(topics, qos).waitForCompletion();
+                    mqttAsyncClient.subscribe("vessels/status", 0).waitForCompletion();
                 } catch (MqttException e) {
                     LOG.error("Failed to subscribe MQTT topics {} with QoS {}", topics, qos);
                     onConnectionFailed.accept(e);
@@ -101,6 +104,16 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
                         locationConsumer.accept(objectMapper.readValue(message.getPayload(), VesselLocation.class));
                     } catch (IOException e) {
                         LOG.warn("Failed to parse vessel location", e);
+                    }
+                }
+                if (topic.contains("status")) {
+                    try {
+                        VesselsStatus vesselsStatus = objectMapper.readValue(message.getPayload(), VesselsStatus.class);
+                        if (!vesselsStatus.everythingOk()) {
+                            LOG.warn("There was something wrong in MQTT status message, is the connection working correctly? {}", vesselsStatus);
+                        }
+                    } catch (IOException e) {
+                        LOG.warn("Failed to parse vessels/status message", e);
                     }
                 }
                 lastReceivedTime.set(System.nanoTime());
