@@ -1,0 +1,48 @@
+name: Test and create Docker image
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Build with Gradle
+        run: ./gradlew shadowJar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-develop-docker-image:
+    needs: test
+    runs-on: ubuntu-latest
+    # Run only on develop branch
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build and publish develop Docker image
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: hsldevcom/suomenlinna-ferry-hfp
+          username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
+          password: ${{ secrets.TRANSITDATA_DOCKERHUB_TOKEN  }}
+          tags: "latest"
+  build-release-docker-image:
+    needs: test
+    runs-on: ubuntu-latest
+    # Run only for tagged commits
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v2
+      - name: Get Git tag name
+        id: git_tag
+        run: echo ::set-output name=GIT_TAG::${GITHUB_REF/refs\/tags\//}
+      - name: Build and publish release Docker image
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: hsldevcom/suomenlinna-ferry-hfp
+          username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
+          password: ${{ secrets.TRANSITDATA_DOCKERHUB_TOKEN  }}
+          tags: "prod,${{ steps.git_tag.outputs.GIT_TAG }}"
