@@ -18,6 +18,8 @@ jobs:
   build-develop-docker-image:
     needs: test
     runs-on: ubuntu-latest
+    # Run only on develop branch
+    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v2
       - name: Build and publish develop Docker image
