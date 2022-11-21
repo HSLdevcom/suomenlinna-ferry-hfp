@@ -6,8 +6,6 @@ import fi.hsl.suomenlinna_hfp.common.model.PassengerCount;
 import fi.hsl.suomenlinna_hfp.common.model.VehicleMetadata;
 import fi.hsl.suomenlinna_hfp.common.model.VehiclePosition;
 import fi.hsl.suomenlinna_hfp.common.utils.MathUtils;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
-import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.GtfsIndex;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.ServiceDates;
@@ -15,15 +13,11 @@ import fi.hsl.suomenlinna_hfp.hfp.model.*;
 import fi.hsl.suomenlinna_hfp.hfp.publisher.HfpPublisher;
 import fi.hsl.suomenlinna_hfp.hfp.utils.GeohashLevelCalculator;
 import fi.hsl.suomenlinna_hfp.hfp.utils.HfpUtils;
-import fi.hsl.suomenlinna_hfp.sbdrive.model.VehicleState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.malkki.gtfs.model.Stop;
+import xyz.malkki.gtfs.model.StopTime;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -132,8 +126,8 @@ public class HfpProducer {
 
                         boolean isAtCurrentStop = tripProcessor.isAtCurrentStop(vehicleId);
 
-                        String nextStopId = isAtCurrentStop ? currentStop.getValue().getId() :
-                                nextStop != null ? nextStop.getValue().getId() : currentStop.getValue().getId();
+                        String nextStopId = isAtCurrentStop ? currentStop.getValue().getStopId() :
+                                nextStop != null ? nextStop.getValue().getStopId() : currentStop.getValue().getStopId();
 
                         int geohashLevel = geohashLevelCalculator.getGeohashLevel(vehicleId, vehiclePosition.getCoordinates(), tripDescriptor, nextStopId);
 
@@ -144,7 +138,7 @@ public class HfpProducer {
                         Payload payload = new Payload(tripDescriptor.routeName, tripDescriptor.directionId, vehicleId.operatorId, vehicleId.vehicleId,
                                 tst, tsi, spd, hdg,
                                 vehiclePosition.getCoordinates().getLatitude(), vehiclePosition.getCoordinates().getLongitude(), null, null, null, null,
-                                tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", isAtCurrentStop ? currentStop.getValue().getId() : null,
+                                tripDescriptor.departureDate, null, null, tripDescriptor.startTime, "GPS", isAtCurrentStop ? currentStop.getValue().getStopId() : null,
                                 tripDescriptor.routeId, occu.orElse(0), vehicleMetadata != null ? vehicleMetadata.getLabel() : null);
 
                         hfpPublisher.publish(topic, payload);
@@ -174,7 +168,7 @@ public class HfpProducer {
      */
     private OptionalInt getPassengerCount(TripProcessor.TripAndRouteWithStopTimes trip) {
         if (passengerCountProvider != null) {
-            final String stopCode = trip.stops.get(trip.getFirstStopTime().getStopId()).getCode();
+            final String stopCode = trip.stops.get(trip.getFirstStopTime().getStopId()).getStopCode();
             final CompletableFuture<PassengerCount> passengerCountFuture = passengerCountProvider.getPassengerCountByStartTimeAndStopCode(trip.getStartTime(), stopCode);
 
             if (passengerCountFuture.isDone()) {

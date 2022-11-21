@@ -2,17 +2,17 @@ package fi.hsl.suomenlinna_hfp;
 
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
 import fi.hsl.suomenlinna_hfp.common.utils.TimeUtils;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Route;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
-import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Trip;
-import fi.hsl.suomenlinna_hfp.hfp.model.TripDescriptor;
-import fi.hsl.suomenlinna_hfp.hfp.model.VehicleId;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.GtfsIndex;
 import fi.hsl.suomenlinna_hfp.gtfs.utils.ServiceDates;
+import fi.hsl.suomenlinna_hfp.hfp.model.TripDescriptor;
+import fi.hsl.suomenlinna_hfp.hfp.model.VehicleId;
 import fi.hsl.suomenlinna_hfp.hfp.utils.HfpUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.malkki.gtfs.model.Route;
+import xyz.malkki.gtfs.model.Stop;
+import xyz.malkki.gtfs.model.StopTime;
+import xyz.malkki.gtfs.model.Trip;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -193,7 +193,7 @@ public class TripProcessor {
 
         //Go through all possible trips
         for (Stop stop : tripsByStartStopAndTime.keySet()) {
-            if (stop.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getId(), defaultMaxDistanceFromStop)) {
+            if (new LatLng(stop.getStopLat(), stop.getStopLon()).distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getStopId(), defaultMaxDistanceFromStop)) {
                 tripsFromStop = tripsByStartStopAndTime.get(stop);
                 break;
             }
@@ -274,14 +274,14 @@ public class TripProcessor {
         Map<String, Stop> stops = registeredTrips.get(vehicleId).stops;
 
         Stop current = stops.get(vehicleRoute.get(currentStopSequence).getStopId());
-        isAtCurrentStop.put(vehicleId, current.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(current.getId(), defaultMaxDistanceFromStop));
+        isAtCurrentStop.put(vehicleId, new LatLng(current.getStopLat(), current.getStopLon()).distanceTo(position) < maxDistanceFromStop.getOrDefault(current.getStopId(), defaultMaxDistanceFromStop));
 
         StopTime nextAfter = vehicleRoute.higherEntry(currentStopSequence).getValue();
 
         if (nextAfter != null) {
             Stop stop = stops.get(nextAfter.getStopId());
 
-            if (stop.getCoordinates().distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getId(), defaultMaxDistanceFromStop)) {
+            if (new LatLng(stop.getStopLat(), stop.getStopLon()).distanceTo(position) < maxDistanceFromStop.getOrDefault(stop.getStopId(), defaultMaxDistanceFromStop)) {
                 currentStop.put(vehicleId, nextAfter.getStopSequence());
                 isAtCurrentStop.put(vehicleId, true);
             }
@@ -300,7 +300,7 @@ public class TripProcessor {
             this.route = route;
             this.operatingDate = operatingDate;
             this.stopTimes = stopTimes.stream().collect(Collectors.toMap(StopTime::getStopSequence, Function.identity(), (a, b) -> a, TreeMap::new));
-            this.stops = stops.stream().collect(Collectors.toMap(Stop::getId, Function.identity()));
+            this.stops = stops.stream().collect(Collectors.toMap(Stop::getStopId, Function.identity()));
         }
 
         public StopTime getFirstStopTime() {
@@ -313,12 +313,12 @@ public class TripProcessor {
 
         public TripDescriptor getTripDescriptor() {
             return new TripDescriptor(
-                    route.getId(),
-                    route.getShortName(),
+                    route.getRouteId(),
+                    route.getRouteShortName(),
                     operatingDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
                     HfpUtils.formatStartTime(getFirstStopTime().getDepartureTime()),
                     String.valueOf(trip.getDirectionId() + 1),
-                    trip.getHeadsign()
+                    trip.getTripHeadsign()
             );
         }
     }

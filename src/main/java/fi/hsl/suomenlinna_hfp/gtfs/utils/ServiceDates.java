@@ -1,7 +1,7 @@
 package fi.hsl.suomenlinna_hfp.gtfs.utils;
 
-import fi.hsl.suomenlinna_hfp.gtfs.model.Calendar;
-import fi.hsl.suomenlinna_hfp.gtfs.model.CalendarDate;
+import xyz.malkki.gtfs.model.Calendar;
+import xyz.malkki.gtfs.model.CalendarDate;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -40,10 +40,10 @@ public class ServiceDates {
         if (calendars.containsKey(serviceId)) {
             Calendar calendar = calendars.get(serviceId);
 
-            for (LocalDate date = calendar.getStartDate(); date.compareTo(calendar.getEndDate()) <= 0; date = date.plusDays(1)) {
+            for (LocalDate date : calendar) {
                 CalendarDate exception = exceptions.getOrDefault(serviceId, Collections.emptyMap()).get(date);
 
-                if (calendar.getAvailableDaysOfWeek().contains(date.getDayOfWeek()) && (exception == null || exception.getExceptionType() != 2)) {
+                if (calendar.getDaysOfWeek().contains(date.getDayOfWeek()) && (exception == null || exception.getExceptionType() != CalendarDate.EXCEPTION_TYPE_REMOVED)) {
                     dates.add(date);
                 }
             }
@@ -66,14 +66,14 @@ public class ServiceDates {
                 throw new IllegalArgumentException("No calendar found for service ID: "+serviceId);
             }
 
-            if (calendar.getAvailableDaysOfWeek().contains(date.getDayOfWeek())) {
+            if (calendar.getDaysOfWeek().contains(date.getDayOfWeek())) {
                 return (calendar.getStartDate().compareTo(date) <= 0) && (calendar.getEndDate().compareTo(date) >= 0);
             } else {
                 return false;
             }
-        } else if (exception.getExceptionType() == 2) {
+        } else if (exception.getExceptionType() == CalendarDate.EXCEPTION_TYPE_REMOVED) {
             return false;
-        } else if (exception.getExceptionType() == 1) {
+        } else if (exception.getExceptionType() == CalendarDate.EXCEPTION_TYPE_ADDED) {
             return true;
         } else {
             throw new RuntimeException("Invalid calendar date exception type");

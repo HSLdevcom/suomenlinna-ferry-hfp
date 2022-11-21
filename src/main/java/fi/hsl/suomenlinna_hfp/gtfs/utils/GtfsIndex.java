@@ -1,11 +1,11 @@
 package fi.hsl.suomenlinna_hfp.gtfs.utils;
 
-import fi.hsl.suomenlinna_hfp.gtfs.model.Route;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Stop;
-import fi.hsl.suomenlinna_hfp.gtfs.model.StopTime;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Trip;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.malkki.gtfs.model.Route;
+import xyz.malkki.gtfs.model.Stop;
+import xyz.malkki.gtfs.model.StopTime;
+import xyz.malkki.gtfs.model.Trip;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -25,7 +25,7 @@ public class GtfsIndex {
         LOG.info("Indexing GTFS data");
 
         Map<String, Stop> stopsById = new HashMap<>(stops.size());
-        stops.forEach(stop -> stopsById.put(stop.getId(), stop));
+        stops.forEach(stop -> stopsById.put(stop.getStopId(), stop));
 
         Map<String, Trip> tripsById = new HashMap<>(trips.size());
         trips.forEach(trip -> tripsById.put(trip.getTripId(), trip));
@@ -35,7 +35,7 @@ public class GtfsIndex {
         );
 
         Map<String, Route> routesById = new HashMap<>(routes.size());
-        routes.forEach(route -> routesById.put(route.getId(), route));
+        routes.forEach(route -> routesById.put(route.getRouteId(), route));
 
         Map<String, SortedSet<StopTime>> stopTimesByTripId = new HashMap<>(trips.size());
         Map<String, Set<StopTime>> stopTimesByStopId = new HashMap<>(stops.size());

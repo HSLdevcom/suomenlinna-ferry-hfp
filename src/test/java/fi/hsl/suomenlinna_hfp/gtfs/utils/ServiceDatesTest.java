@@ -1,9 +1,10 @@
 package fi.hsl.suomenlinna_hfp.gtfs.utils;
 
-import fi.hsl.suomenlinna_hfp.gtfs.model.Calendar;
-import fi.hsl.suomenlinna_hfp.gtfs.model.CalendarDate;
 import org.junit.Before;
 import org.junit.Test;
+import xyz.malkki.gtfs.model.Calendar;
+import xyz.malkki.gtfs.model.CalendarDate;
+
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
