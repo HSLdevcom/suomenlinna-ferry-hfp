@@ -1,4 +1,4 @@
-FROM gradle:7-jdk11-alpine AS app-build
+FROM gradle:6-jdk11-alpine AS app-build
 COPY --chown=gradle:gradle . /gradle
 WORKDIR /gradle
 RUN gradle shadowJar --no-daemon
