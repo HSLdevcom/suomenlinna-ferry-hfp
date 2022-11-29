@@ -39,7 +39,7 @@ dependencies {
 
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.2'
 
-    implementation 'xyz.malkki:gtfs-library:0.1.3'
+    implementation 'xyz.malkki:gtfs-library:0.2.0'
 
     implementation 'com.typesafe:config:1.4.0'
 
