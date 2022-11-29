@@ -1,16 +1,10 @@
-FROM gradle:5.2.1-jdk11-slim AS build
-COPY --chown=gradle:gradle . /gradle
-WORKDIR /gradle
-RUN gradle shadowJar --no-daemon 
-
-FROM openjdk:11-jre-slim
+FROM eclipse-temurin:11-alpine
 
 RUN mkdir /app
-
-COPY --from=build /gradle/build/libs/*-all.jar /app/application.jar
+COPY build/libs/suomenlinna-ferry-hfp.jar /app/application.jar
 
 #curl for health check
-RUN apt-get update && apt-get install -y --no-install-recommends curl
+RUN apk add --no-cache curl
 
 COPY start-application.sh /
 RUN chmod +x /start-application.sh
