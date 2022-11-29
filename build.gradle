@@ -19,6 +19,10 @@ jar {
     }
 }
 
+shadowJar {
+    archiveFileName ="${baseName}.${extension}"
+}
+
 repositories {
     mavenCentral()
     maven {
