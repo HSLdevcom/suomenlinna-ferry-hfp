@@ -2,7 +2,6 @@ package fi.hsl.suomenlinna_hfp;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import fi.hsl.suomenlinna_hfp.gtfs.model.Trip;
 import fi.hsl.suomenlinna_hfp.hfp.model.TripDescriptor;
 
 import java.time.Duration;

@@ -19,8 +19,19 @@ jar {
     }
 }
 
+shadowJar {
+    archiveFileName ="${baseName}.${extension}"
+}
+
 repositories {
     mavenCentral()
+    maven {
+        url "https://maven.pkg.github.com/mjaakko/gtfs-library"
+        credentials {
+            username = project.findProperty("github.user") ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("github.token") ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 
 dependencies {
@@ -28,13 +39,18 @@ dependencies {
 
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.10.3'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.10.3'
+
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.2'
-    implementation 'org.apache.commons:commons-csv:1.7'
+
+    implementation 'xyz.malkki:gtfs-library:0.2.0'
+
     implementation 'com.typesafe:config:1.4.0'
+
     implementation 'com.github.ben-manes.caffeine:caffeine:2.8.1'
 
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     implementation group: 'ch.qos.logback.contrib', name: 'logback-json-classic', version: '0.1.5'
     implementation group: 'ch.qos.logback.contrib', name: 'logback-jackson', version: '0.1.5'
+
     implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.12'
 }

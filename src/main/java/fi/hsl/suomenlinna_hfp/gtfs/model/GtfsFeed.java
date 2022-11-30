@@ -1,5 +1,7 @@
 package fi.hsl.suomenlinna_hfp.gtfs.model;
 
+import xyz.malkki.gtfs.model.*;
+
 import java.util.List;
 
 public class GtfsFeed {
