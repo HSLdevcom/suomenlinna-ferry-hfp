@@ -6,6 +6,7 @@ import fi.hsl.suomenlinna_hfp.gtfs.parser.GtfsParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -55,6 +56,28 @@ public class HttpGtfsProvider implements GtfsProvider {
         return scheduledFuture != null;
     }
 
+    private HttpResponse<Path> downloadToFile(Path path) throws IOException, InterruptedException {
+        LOG.info("Downloading GTFS feed from {}", url);
+
+        final long startTime = System.nanoTime();
+
+        final HttpResponse<Path> response = httpClient.send(HttpRequest.newBuilder().uri(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofFile(path));
+
+        LOG.info("GTFS feed downloaded in {}ms", (System.nanoTime() - startTime) / 1000000);
+        return response;
+    }
+
+    private GtfsFeed parseGtfs(File file) throws IOException {
+        LOG.info("Parsing GTFS feed");
+
+        final long startTime = System.nanoTime();
+
+        final GtfsFeed gtfsFeed = GtfsParser.parseGtfs(file, routeIds);
+
+        LOG.info("GTFS feed parsed in {}ms", (System.nanoTime() - startTime) / 1000000);
+        return gtfsFeed;
+    }
+
     @Override
     public void start(Consumer<GtfsFeed> callback, Consumer<Throwable> onError) {
         if (isActive()) {
@@ -65,15 +88,10 @@ public class HttpGtfsProvider implements GtfsProvider {
             Path gtfsFile = null;
 
             try {
-                long startTime = System.nanoTime();
-                LOG.info("Downloading GTFS feed from {}", url);
-
                 gtfsFile = Files.createTempFile("gtfs", ".zip");
-                HttpResponse<Path> response = httpClient.send(HttpRequest.newBuilder().uri(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofFile(gtfsFile));
 
-                GtfsFeed gtfsFeed = GtfsParser.parseGtfs(response.body().toFile(), routeIds);
-
-                LOG.info("GTFS feed downloaded in {}ms", (System.nanoTime() - startTime) / 1000000);
+                HttpResponse<Path> response = downloadToFile(gtfsFile);
+                GtfsFeed gtfsFeed = parseGtfs(response.body().toFile());
 
                 lastUpdate = System.nanoTime();
                 callback.accept(gtfsFeed);
