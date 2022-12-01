@@ -1,30 +1,24 @@
 package fi.hsl.suomenlinna_hfp.gtfs.provider;
 
+import fi.hsl.suomenlinna_hfp.common.utils.DaemonThreadFactory;
 import fi.hsl.suomenlinna_hfp.gtfs.model.GtfsFeed;
 import fi.hsl.suomenlinna_hfp.gtfs.parser.GtfsParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
-import java.net.URLConnection;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.zip.ZipInputStream;
 
 public class HttpGtfsProvider implements GtfsProvider {
     private static final Logger LOG = LoggerFactory.getLogger(HttpGtfsProvider.class);
@@ -41,11 +35,7 @@ public class HttpGtfsProvider implements GtfsProvider {
 
     private final Collection<String> routeIds;
 
-    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor((runnable) -> {
-        Thread t = new Thread(runnable);
-        t.setDaemon(true);
-        return t;
-    });
+    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
 
     public HttpGtfsProvider(HttpClient httpClient, String url, long interval, TimeUnit timeUnit, Collection<String> routeIds) {
         this.httpClient = httpClient;

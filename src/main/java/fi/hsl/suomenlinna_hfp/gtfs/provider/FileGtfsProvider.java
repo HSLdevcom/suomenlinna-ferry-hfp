@@ -1,24 +1,19 @@
 package fi.hsl.suomenlinna_hfp.gtfs.provider;
 
+import fi.hsl.suomenlinna_hfp.common.utils.DaemonThreadFactory;
 import fi.hsl.suomenlinna_hfp.gtfs.model.GtfsFeed;
 import fi.hsl.suomenlinna_hfp.gtfs.parser.GtfsParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.Collection;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 public class FileGtfsProvider implements GtfsProvider {
     private static final Logger LOG = LoggerFactory.getLogger(FileGtfsProvider.class);
@@ -33,7 +28,7 @@ public class FileGtfsProvider implements GtfsProvider {
 
     private final Collection<String> routeIds;
 
-    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
 
     public FileGtfsProvider(String file, long interval, TimeUnit timeUnit, Collection<String> routeIds) {
         this.file = file;

@@ -1,6 +1,7 @@
 package fi.hsl.suomenlinna_hfp.health;
 
 import com.sun.net.httpserver.*;
+import fi.hsl.suomenlinna_hfp.common.utils.DaemonThreadFactory;
 import org.slf4j.*;
 
 import java.io.*;
@@ -31,11 +32,7 @@ public class HealthServer {
         httpServer = HttpServer.create(new InetSocketAddress(port), 0);
         httpServer.createContext("/", createDefaultHandler());
         httpServer.createContext("/health", createHandler());
-        httpServer.setExecutor(Executors.newSingleThreadExecutor(runnable -> {
-            Thread t = new Thread(runnable);
-            t.setDaemon(true);
-            return t;
-        }));
+        httpServer.setExecutor(Executors.newSingleThreadExecutor(new DaemonThreadFactory()));
         httpServer.start();
         log.info("HealthServer started");
     }
