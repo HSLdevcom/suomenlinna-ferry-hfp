@@ -42,7 +42,7 @@ jobs:
           name: suomenlinna-ferry-hfp.jar
           path: build/libs
       - name: Build and publish develop Docker image
-        uses: elgohr/Publish-Docker-Github-Action@v4
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: hsldevcom/suomenlinna-ferry-hfp
           username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
@@ -64,7 +64,7 @@ jobs:
         id: git_tag
         run: echo ::set-output name=GIT_TAG::${GITHUB_REF/refs\/tags\//}
       - name: Build and publish release Docker image
-        uses: elgohr/Publish-Docker-Github-Action@v4
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: hsldevcom/suomenlinna-ferry-hfp
           username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
