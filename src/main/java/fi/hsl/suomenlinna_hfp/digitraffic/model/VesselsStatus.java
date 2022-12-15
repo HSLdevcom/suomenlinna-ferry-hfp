@@ -9,26 +9,15 @@ import java.util.Objects;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class VesselsStatus {
-    public final int readErrors;
-    public final int sentErrors;
     public final ZonedDateTime updateTime;
-    public final String status;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public VesselsStatus(@JsonProperty("readErrors") int readErrors,
-                         @JsonProperty("sentErrors") int sentErrors,
-                         @JsonProperty("updateTime") ZonedDateTime updateTime,
-                         @JsonProperty("status") String status) {
-        this.readErrors = readErrors;
-        this.sentErrors = sentErrors;
+    public VesselsStatus(@JsonProperty("updated") ZonedDateTime updateTime) {
         this.updateTime = updateTime;
-        this.status = status;
     }
 
     public boolean everythingOk() {
-        return 0 == readErrors &&
-                0 == sentErrors &&
-                "CONNECTED".equals(status);
+        return updateTime != null;
     }
 
     @Override
@@ -36,21 +25,18 @@ public class VesselsStatus {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         VesselsStatus that = (VesselsStatus) o;
-        return readErrors == that.readErrors && sentErrors == that.sentErrors && Objects.equals(updateTime, that.updateTime) && Objects.equals(status, that.status);
+        return Objects.equals(updateTime, that.updateTime);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(readErrors, sentErrors, updateTime, status);
+        return updateTime != null ? updateTime.hashCode() : 0;
     }
 
     @Override
     public String toString() {
         return "VesselsStatus{" +
-                "readErrors=" + readErrors +
-                ", sentErrors=" + sentErrors +
-                ", updateTime=" + updateTime +
-                ", status='" + status + '\'' +
+                "updateTime=" + updateTime +
                 '}';
     }
 }

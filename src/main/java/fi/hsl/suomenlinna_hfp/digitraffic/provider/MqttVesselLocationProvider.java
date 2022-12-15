@@ -76,7 +76,7 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
 
                 try {
                     mqttAsyncClient.subscribe(topics, qos).waitForCompletion();
-                    mqttAsyncClient.subscribe("vessels/status", 0).waitForCompletion();
+                    mqttAsyncClient.subscribe("vessels-v2/status", 0).waitForCompletion();
                 } catch (MqttException e) {
                     LOG.error("Failed to subscribe MQTT topics {} with QoS {}", topics, qos);
                     onConnectionFailed.accept(e);
