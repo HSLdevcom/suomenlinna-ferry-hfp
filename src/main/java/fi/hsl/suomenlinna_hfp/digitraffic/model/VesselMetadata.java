@@ -25,13 +25,12 @@ public class VesselMetadata implements VehicleMetadata {
     public final String destination;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public VesselMetadata(@JsonProperty("mmsi") Integer mmsi,
-                          @JsonProperty("name") String name,
-                          @JsonProperty("shipType") Integer shipType,
-                          @JsonProperty("referencePointA") Integer referencePointA,
-                          @JsonProperty("referencePointB") Integer referencePointB,
-                          @JsonProperty("referencePointC") Integer referencePointC,
-                          @JsonProperty("referencePointD") Integer referencePointD,
+    public VesselMetadata(@JsonProperty("name") String name,
+                          @JsonProperty("type") Integer shipType,
+                          @JsonProperty("refA") Integer referencePointA,
+                          @JsonProperty("refB") Integer referencePointB,
+                          @JsonProperty("refC") Integer referencePointC,
+                          @JsonProperty("refD") Integer referencePointD,
                           @JsonProperty("posType") Integer positionType,
                           @JsonProperty("draught") Integer draught,
                           @JsonProperty("imo") Integer imo,
@@ -39,7 +38,7 @@ public class VesselMetadata implements VehicleMetadata {
                           @JsonProperty("eta") Long eta,
                           @JsonProperty("timestamp") Long timestamp,
                           @JsonProperty("destination") String destination) {
-        this.mmsi = mmsi;
+        this.mmsi = null; //TODO: Generate this.
         this.name = name;
         this.shipType = shipType;
         this.referencePointA = referencePointA;
