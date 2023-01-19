@@ -70,7 +70,7 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
             public void connectComplete(boolean reconnect, String serverURI) {
                 LOG.info("Connected to {} (reconnect: {})", brokerUri, reconnect);
 
-                String[] topics = mmsis.stream().map(mmsi -> "vessels/" + mmsi + "/+/#").toArray(String[]::new);
+                String[] topics = mmsis.stream().map(mmsi -> "vessels-v2/" + mmsi + "/+/#").toArray(String[]::new);
                 int[] qos = new int[topics.length];
                 Arrays.fill(qos, 0);
 
@@ -99,7 +99,7 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
                         LOG.warn("Failed to parse vessel metadata", e);
                     }
                 }
-                if (topic.contains("locations")) {
+                if (topic.contains("location")) {
                     try {
                         locationConsumer.accept(objectMapper.readValue(message.getPayload(), VesselLocation.class));
                     } catch (IOException e) {
