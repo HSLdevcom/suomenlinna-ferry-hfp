@@ -1,5 +1,6 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.provider;
 
+import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselLocation;
@@ -14,6 +15,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MqttVesselLocationProvider extends VesselLocationProvider {
     private static final Logger LOG = LoggerFactory.getLogger(MqttVesselLocationProvider.class);
@@ -94,16 +97,24 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
             public void messageArrived(String topic, MqttMessage message) {
                 if (topic.contains("metadata")) {
                     try {
+                        injectMmsi(topic);
+                        VesselMetadata vesselMetadata = objectMapper.readValue(message.getPayload(), VesselMetadata.class);
                         metadataConsumer.accept(objectMapper.readValue(message.getPayload(), VesselMetadata.class));
                     } catch (IOException e) {
                         LOG.warn("Failed to parse vessel metadata", e);
+                    } finally {
+                        objectMapper.setInjectableValues(new InjectableValues.Std());
                     }
                 }
                 if (topic.contains("location")) {
                     try {
-                        locationConsumer.accept(objectMapper.readValue(message.getPayload(), VesselLocation.class));
+                        injectMmsi(topic);
+                        VesselLocation vesselLocation = objectMapper.readValue(message.getPayload(), VesselLocation.class);
+                        locationConsumer.accept(vesselLocation);
                     } catch (IOException e) {
                         LOG.warn("Failed to parse vessel location", e);
+                    } finally {
+                        objectMapper.setInjectableValues(new InjectableValues.Std());
                     }
                 }
                 if (topic.contains("status")) {
@@ -133,6 +144,17 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
                 onConnectionFailed.accept(exception);
             }
         });
+    }
+
+    private void injectMmsi(String topic) {
+        Pattern pattern = Pattern.compile("\\d{2,}");
+        Matcher matcher = pattern.matcher(topic);
+        if (matcher.find()) {
+            String mmsi = matcher.group();
+            InjectableValues injectableValues = new InjectableValues.Std().addValue("mmsi", Integer.parseInt(mmsi));
+            objectMapper.setInjectableValues(injectableValues);
+        }
+
     }
 
     @Override

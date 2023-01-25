@@ -1,5 +1,6 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.model;
 
+import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -9,7 +10,10 @@ import java.util.Objects;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class VesselMetadata implements VehicleMetadata {
-    public final Integer mmsi;
+
+    @JacksonInject("mmsi")
+    public Integer mmsi;
+
     public final String name;
     public final Integer shipType;
     public final Integer referencePointA;

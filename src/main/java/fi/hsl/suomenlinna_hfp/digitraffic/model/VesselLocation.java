@@ -11,7 +11,8 @@ import java.util.Properties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class VesselLocation implements VehiclePosition {
-    public final Integer mmsi;
+    @JacksonInject("mmsi")
+    public Integer mmsi;
     public final LatLng coordinates;
     public final Double speed; //Speed over ground in knots
     public final Double course; //Course over ground in degrees from north
@@ -33,7 +34,6 @@ public class VesselLocation implements VehiclePosition {
                           @JsonProperty("time") Long timestamp,
                           @JsonProperty("lat") Double latitude,
                           @JsonProperty("lon") Double longitude) {
-        this.mmsi = null; // TODO: Generate this.
         this.speed = speed;
         this.course = course;
         this.status = status;
