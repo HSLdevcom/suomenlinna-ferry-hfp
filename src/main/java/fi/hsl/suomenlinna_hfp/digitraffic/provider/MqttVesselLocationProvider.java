@@ -147,13 +147,9 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
     }
 
     private void injectMmsi(String topic) {
-        Pattern pattern = Pattern.compile("\\d{2,}");
-        Matcher matcher = pattern.matcher(topic);
-        if (matcher.find()) {
-            String mmsi = matcher.group();
-            InjectableValues injectableValues = new InjectableValues.Std().addValue("mmsi", Integer.parseInt(mmsi));
-            objectMapper.setInjectableValues(injectableValues);
-        }
+        String mmsi = topic.split("/")[1];
+        InjectableValues injectableValues = new InjectableValues.Std().addValue("mmsi", Integer.parseInt(mmsi));
+        objectMapper.setInjectableValues(injectableValues);
 
     }
 
