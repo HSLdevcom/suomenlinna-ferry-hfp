@@ -107,6 +107,6 @@ public class VesselLocation implements VehiclePosition {
 
     @Override
     public long getTimestamp() {
-        return timestamp;
+        return timestamp * 1000;
     }
 }
