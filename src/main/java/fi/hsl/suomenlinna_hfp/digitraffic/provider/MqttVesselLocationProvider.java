@@ -1,5 +1,6 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.provider;
 
+import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import fi.hsl.suomenlinna_hfp.digitraffic.model.VesselLocation;
@@ -14,6 +15,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MqttVesselLocationProvider extends VesselLocationProvider {
     private static final Logger LOG = LoggerFactory.getLogger(MqttVesselLocationProvider.class);
@@ -70,13 +73,13 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
             public void connectComplete(boolean reconnect, String serverURI) {
                 LOG.info("Connected to {} (reconnect: {})", brokerUri, reconnect);
 
-                String[] topics = mmsis.stream().map(mmsi -> "vessels/" + mmsi + "/+/#").toArray(String[]::new);
+                String[] topics = mmsis.stream().map(mmsi -> "vessels-v2/" + mmsi + "/+/#").toArray(String[]::new);
                 int[] qos = new int[topics.length];
                 Arrays.fill(qos, 0);
 
                 try {
                     mqttAsyncClient.subscribe(topics, qos).waitForCompletion();
-                    mqttAsyncClient.subscribe("vessels/status", 0).waitForCompletion();
+                    mqttAsyncClient.subscribe("vessels-v2/status", 0).waitForCompletion();
                 } catch (MqttException e) {
                     LOG.error("Failed to subscribe MQTT topics {} with QoS {}", topics, qos);
                     onConnectionFailed.accept(e);
@@ -94,16 +97,24 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
             public void messageArrived(String topic, MqttMessage message) {
                 if (topic.contains("metadata")) {
                     try {
+                        injectMmsi(topic);
+                        VesselMetadata vesselMetadata = objectMapper.readValue(message.getPayload(), VesselMetadata.class);
                         metadataConsumer.accept(objectMapper.readValue(message.getPayload(), VesselMetadata.class));
                     } catch (IOException e) {
                         LOG.warn("Failed to parse vessel metadata", e);
+                    } finally {
+                        objectMapper.setInjectableValues(new InjectableValues.Std());
                     }
                 }
-                if (topic.contains("locations")) {
+                if (topic.contains("location")) {
                     try {
-                        locationConsumer.accept(objectMapper.readValue(message.getPayload(), VesselLocation.class));
+                        injectMmsi(topic);
+                        VesselLocation vesselLocation = objectMapper.readValue(message.getPayload(), VesselLocation.class);
+                        locationConsumer.accept(vesselLocation);
                     } catch (IOException e) {
                         LOG.warn("Failed to parse vessel location", e);
+                    } finally {
+                        objectMapper.setInjectableValues(new InjectableValues.Std());
                     }
                 }
                 if (topic.contains("status")) {
@@ -133,6 +144,13 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
                 onConnectionFailed.accept(exception);
             }
         });
+    }
+
+    private void injectMmsi(String topic) {
+        String mmsi = topic.split("/")[1];
+        InjectableValues injectableValues = new InjectableValues.Std().addValue("mmsi", Integer.parseInt(mmsi));
+        objectMapper.setInjectableValues(injectableValues);
+
     }
 
     @Override

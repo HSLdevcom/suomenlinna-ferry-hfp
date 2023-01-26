@@ -7,8 +7,8 @@ import java.time.format.DateTimeFormatter;
 public class HfpUtils {
     private static final DateTimeFormatter TST_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
 
-    public static String formatTst(long timestampMillis) {
-        return TST_FORMATTER.format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.of("UTC")));
+    public static String formatTst(long timeStampMillis) {
+        return TST_FORMATTER.format(Instant.ofEpochMilli(timeStampMillis).atZone(ZoneId.of("UTC")));
     }
 
     public static String formatStartTime(int seconds) {
