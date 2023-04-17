@@ -15,8 +15,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class MqttVesselLocationProvider extends VesselLocationProvider {
     private static final Logger LOG = LoggerFactory.getLogger(MqttVesselLocationProvider.class);
@@ -63,7 +61,8 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
         MqttConnectOptions connectOptions = new MqttConnectOptions();
         connectOptions.setCleanSession(true);
         connectOptions.setAutomaticReconnect(true);
-        connectOptions.setKeepAliveInterval(0);
+        //MQTT keep-alive should be enabled for meri.digitraffic.fi broker
+        connectOptions.setKeepAliveInterval(30);
         connectOptions.setMqttVersion(4);
         connectOptions.setUserName(username);
         connectOptions.setPassword(password.toCharArray());
