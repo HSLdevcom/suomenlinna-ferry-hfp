@@ -46,7 +46,7 @@ dependencies {
 
     implementation 'xyz.malkki:gtfs-library:0.2.0'
 
-    implementation 'com.typesafe:config:1.4.0'
+    implementation 'com.typesafe:config:1.4.2'
 
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.2'
 
