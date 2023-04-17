@@ -1,13 +1,14 @@
 package fi.hsl.suomenlinna_hfp.digitraffic.model;
 
-import com.fasterxml.jackson.annotation.*;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import fi.hsl.suomenlinna_hfp.common.model.LatLng;
 import fi.hsl.suomenlinna_hfp.common.model.VehiclePosition;
 import fi.hsl.suomenlinna_hfp.common.utils.SpeedUtils;
 
 import java.util.Objects;
-import java.util.Properties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class VesselLocation implements VehiclePosition {
@@ -91,7 +92,7 @@ public class VesselLocation implements VehiclePosition {
 
     @Override
     public LatLng getCoordinates() {
-        return new LatLng(coordinates.getLatitude(), coordinates.getLongitude()); //TODO: Is this "new" really necessary?
+        return coordinates;
     }
 
     @Override
