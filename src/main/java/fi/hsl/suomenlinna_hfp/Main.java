@@ -107,11 +107,12 @@ public class Main {
         }
 
         if (config.getBoolean("health.enabled")) {
+            HealthNotificationService healthNotificationService = null;
             if (!config.getString("health.postEndpoint").equals("")) {
-                createHealthServerWithNotification(vehiclePositionProvider, mqttHfpPublisher, configType != ConfigType.SBDRIVE, config.getString("health.postEndpoint"));
-            } else {
-                createHealthServerWithoutNotification(vehiclePositionProvider, mqttHfpPublisher, configType != ConfigType.SBDRIVE);
+                healthNotificationService = new HealthNotificationService(config.getString("health.postEndpoint"), httpClient);
             }
+
+            createHealthServer(vehiclePositionProvider, mqttHfpPublisher, configType != ConfigType.SBDRIVE, healthNotificationService);
         }
 
         new HfpProducer(transportMode, vehicleIdMap, tripProcessor, gtfsProvider, vehiclePositionProvider, passengerCountProvider, mqttHfpPublisher).run();
@@ -135,16 +136,8 @@ public class Main {
         }
     }
 
-    private static void createHealthServerWithNotification(VehiclePositionProvider vehiclePositionProvider, MqttHfpPublisher mqttHfpPublisher, boolean publisherHealthCheck, String postEndpoint) throws IOException {
-        HealthServer healthServer = new HealthServer(8080, new HealthNotificationService(postEndpoint));
-        healthServer.addCheck(() -> System.nanoTime() - vehiclePositionProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
-        if (publisherHealthCheck) {
-            healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
-        }
-    }
-
-    private static void createHealthServerWithoutNotification(VehiclePositionProvider vehiclePositionProvider, MqttHfpPublisher mqttHfpPublisher, boolean publisherHealthCheck) throws IOException {
-        HealthServer healthServer = new HealthServer(8080);
+    private static void createHealthServer(VehiclePositionProvider vehiclePositionProvider, MqttHfpPublisher mqttHfpPublisher, boolean publisherHealthCheck, HealthNotificationService healthNotificationService) throws IOException {
+        HealthServer healthServer = healthNotificationService == null ? new HealthServer(8080) : new HealthServer(8080, healthNotificationService);
         healthServer.addCheck(() -> System.nanoTime() - vehiclePositionProvider.getLastReceivedTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
         if (publisherHealthCheck) {
             healthServer.addCheck(() -> System.nanoTime() - mqttHfpPublisher.getLastSentTime() < Duration.of(10, ChronoUnit.MINUTES).toNanos());
