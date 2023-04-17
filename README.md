@@ -1,4 +1,4 @@
-# suomenlinna-ferry-hfp [![Build Status](https://travis-ci.org/HSLdevcom/suomenlinna-ferry-hfp.svg?branch=master)](https://travis-ci.org/HSLdevcom/suomenlinna-ferry-hfp)
+# suomenlinna-ferry-hfp [![Test and create Docker image](https://github.com/HSLdevcom/suomenlinna-ferry-hfp/actions/workflows/test-and-build.yml/badge.svg)](https://github.com/HSLdevcom/suomenlinna-ferry-hfp/actions/workflows/test-and-build.yml)
 
 Application for producing [HFP](https://digitransit.fi/en/developers/apis/4-realtime-api/vehicle-positions/) data from vehicles that have only location data available. The vehicle position will be matched to a scheduled trip from GTFS data and published over MQTT for customers.
 
