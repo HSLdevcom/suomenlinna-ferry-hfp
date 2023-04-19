@@ -64,8 +64,12 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
         //MQTT keep-alive should be enabled for meri.digitraffic.fi broker
         connectOptions.setKeepAliveInterval(30);
         connectOptions.setMqttVersion(4);
-        connectOptions.setUserName(username);
-        connectOptions.setPassword(password.toCharArray());
+
+        //Only add credentials if they are present
+        if (username != null && !username.isBlank() && password != null && !password.isBlank()) {
+            connectOptions.setUserName(username);
+            connectOptions.setPassword(password.toCharArray());
+        }
 
         mqttAsyncClient.setCallback(new MqttCallbackExtended() {
             @Override
