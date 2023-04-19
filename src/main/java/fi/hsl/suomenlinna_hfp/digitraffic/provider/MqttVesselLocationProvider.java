@@ -102,7 +102,7 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
                     try {
                         injectMmsi(topic);
                         VesselMetadata vesselMetadata = objectMapper.readValue(message.getPayload(), VesselMetadata.class);
-                        metadataConsumer.accept(objectMapper.readValue(message.getPayload(), VesselMetadata.class));
+                        metadataConsumer.accept(vesselMetadata);
                     } catch (IOException e) {
                         LOG.warn("Failed to parse vessel metadata", e);
                     } finally {
