@@ -20,6 +20,7 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,15 @@ public class Main {
         Duration maxTimeBeforeDeparture = config.getDuration("tripProcessor.maxTimeBeforeDeparture");
         double maxTripDuration = config.getDouble("tripProcessor.maxTripDuration");
 
-        TripProcessor tripProcessor = new TripProcessor(timezone, routes, maxDistanceFromStop, defaultMaxDistanceFromStop,
+        Map<VehicleId, List<String>> routeRestrictions = (config.hasPath("routeRestrictions") ? config.getConfigList("routeRestrictions") : Collections.<Config>emptyList()).stream()
+                .collect(Collectors.toMap(routeRestriction -> {
+                    int operator = routeRestriction.getInt("operator");
+                    int vehicle = routeRestriction.getInt("vehicle");
+
+                    return new VehicleId(operator, vehicle);
+                }, routeRestriction -> routeRestriction.getStringList("routes")));
+
+        TripProcessor tripProcessor = new TripProcessor(timezone, routes, routeRestrictions, maxDistanceFromStop, defaultMaxDistanceFromStop,
                 maxTimeBeforeDeparture,
                 maxTripDuration);
 
