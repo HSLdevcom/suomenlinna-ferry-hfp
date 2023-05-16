@@ -41,6 +41,9 @@ public class TripProcessor {
     private final ZoneId timezone;
 
     private final List<String> possibleRoutes;
+
+    //Map of allowed route IDs for certain vehicle. If vehicle is not present in this map, it can be assigned to any route
+    private final Map<VehicleId, List<String>> routeRestrictions;
     private final Map<String, Double> maxDistanceFromStop;
 
     private final double defaultMaxDistanceFromStop;
@@ -50,17 +53,18 @@ public class TripProcessor {
     private final double maxDurationOfTrip;
 
     /**
-     *
-     * @param timezone Timezone used
-     * @param possibleRoutes Possible routes for which the vehicles can register for
-     * @param maxDistanceFromStop Maximum distances from stops, can be empty
+     * @param timezone                   Timezone used
+     * @param possibleRoutes             Possible routes for which the vehicles can register for
+     * @param routeRestrictions
+     * @param maxDistanceFromStop        Maximum distances from stops, can be empty
      * @param defaultMaxDistanceFromStop Default maximum distance from stop
-     * @param maxTimeBeforeDeparture Maximum time for when the vehicle can register for a trip before scheduled departure time
-     * @param maxDurationOfTrip Maximum duration of the trip, as multiplier (e.g. 1 = scheduled running time, 2 = 2x scheduled running time). If the vehicle has not reached its final stop after max duration, it can register for a next trip
+     * @param maxTimeBeforeDeparture     Maximum time for when the vehicle can register for a trip before scheduled departure time
+     * @param maxDurationOfTrip          Maximum duration of the trip, as multiplier (e.g. 1 = scheduled running time, 2 = 2x scheduled running time). If the vehicle has not reached its final stop after max duration, it can register for a next trip
      */
-    public TripProcessor(ZoneId timezone, List<String> possibleRoutes, Map<String, Double> maxDistanceFromStop, double defaultMaxDistanceFromStop, Duration maxTimeBeforeDeparture, double maxDurationOfTrip) {
+    public TripProcessor(ZoneId timezone, List<String> possibleRoutes, Map<VehicleId, List<String>> routeRestrictions, Map<String, Double> maxDistanceFromStop, double defaultMaxDistanceFromStop, Duration maxTimeBeforeDeparture, double maxDurationOfTrip) {
         this.timezone = timezone;
         this.possibleRoutes = possibleRoutes;
+        this.routeRestrictions = routeRestrictions;
         this.maxDistanceFromStop = maxDistanceFromStop;
         this.defaultMaxDistanceFromStop = defaultMaxDistanceFromStop;
         this.maxTimeBeforeDeparture = maxTimeBeforeDeparture;
@@ -181,6 +185,14 @@ public class TripProcessor {
         }
     }
 
+    private void processRouteRestrictions(VehicleId vehicleId, Collection<TripAndRouteWithStopTimes> trips) {
+        List<String> allowedRoutes = routeRestrictions.get(vehicleId);
+        if (allowedRoutes != null) {
+            //Remove trips that the vehicle can't register to
+            trips.removeIf(tripAndRouteWithStopTimes -> !allowedRoutes.contains(tripAndRouteWithStopTimes.route.getRouteId()));
+        }
+    }
+
     private void registerForTrip(VehicleId vehicleId, LatLng position, ZonedDateTime time, Map<Stop, NavigableMap<ZonedDateTime, TripAndRouteWithStopTimes>> tripsByStartStopAndTime) {
         //Remove previous registration
         registeredTrips.remove(vehicleId);
@@ -201,6 +213,9 @@ public class TripProcessor {
 
         //If the vehicle is near the first stop of a trip
         if (tripsFromStop != null) {
+            //Filter routes that the vehicle cannot use
+            processRouteRestrictions(vehicleId, tripsFromStop.values());
+
             //Trip that would have started before current time
             Map.Entry<ZonedDateTime, TripAndRouteWithStopTimes> earlierTrip = tripsFromStop.lowerEntry(time);
 
