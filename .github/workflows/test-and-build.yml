@@ -81,7 +81,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: suomenlinna-ferry-hfp.jar
-          path: target
+          path: build/libs
       - name: Build and publish aks-dev Docker image
         uses: elgohr/Publish-Docker-Github-Action@v5
         with:
