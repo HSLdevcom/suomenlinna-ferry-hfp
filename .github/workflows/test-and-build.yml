@@ -83,7 +83,7 @@ jobs:
           name: suomenlinna-ferry-hfp.jar
           path: target
       - name: Build and publish aks-dev Docker image
-        uses: elgohr/Publish-Docker-Github-Action@master
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: hsldevcom/suomenlinna-ferry-hfp
           username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
