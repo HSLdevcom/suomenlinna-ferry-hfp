@@ -1,6 +1,8 @@
 package fi.hsl.suomenlinna_hfp.gtfs.parser;
 
 import fi.hsl.suomenlinna_hfp.gtfs.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.malkki.gtfs.model.*;
 import xyz.malkki.gtfs.model.Calendar;
 import xyz.malkki.gtfs.serialization.parser.GtfsFeedParser;
@@ -11,6 +13,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class GtfsParser {
+    private static final Logger LOG = LoggerFactory.getLogger(GtfsParser.class);
     private GtfsParser() {}
 
     /**
@@ -21,6 +24,7 @@ public class GtfsParser {
      * @throws IOException
      */
     public static GtfsFeed parseGtfs(File gtfsFile, Collection<String> routeIds) throws IOException {
+        LOG.info("Parsing file '{}', length {}. Num routes: {}", gtfsFile.getName(), gtfsFile.length(), routeIds.size());
         try (GtfsFeedParser gtfsFeedParser = new ZipGtfsFeedParser(gtfsFile.toPath())) {
             List<Route> routes = gtfsFeedParser.parseRoutes().filter(route -> routeIds.contains(route.getRouteId())).collect(Collectors.toList());
             List<Trip> trips = gtfsFeedParser.parseTrips().filter(trip -> routeIds.contains(trip.getRouteId())).collect(Collectors.toList());
