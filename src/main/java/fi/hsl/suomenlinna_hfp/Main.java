@@ -52,7 +52,7 @@ public class Main {
         String publisherBroker = config.getString("publisher.broker");
         int publisherMaxReconnects = config.getInt("publisher.maxReconnects");
 
-        HttpClient httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofMinutes(5)).followRedirects(HttpClient.Redirect.ALWAYS).build();
         GtfsProvider gtfsProvider = new HttpGtfsProvider(httpClient, gtfsUrl, gtfsPollInterval.getSeconds(), TimeUnit.SECONDS, routes);
 
         MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker, publisherMaxReconnects);
