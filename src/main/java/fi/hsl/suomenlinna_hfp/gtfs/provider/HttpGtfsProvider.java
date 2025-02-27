@@ -66,9 +66,11 @@ public class HttpGtfsProvider implements GtfsProvider {
         }
 
         scheduledFuture = executorService.scheduleAtFixedRate(() -> {
+            LOG.info("Reading GTFS file...");
             Path gtfsFile = Paths.get("/hsl.zip");
 
             try {
+                LOG.info("Reading GTFS file from {}", gtfsFile);
                 GtfsFeed gtfsFeed = parseGtfs(gtfsFile.toFile());
 
                 lastUpdate = System.nanoTime();
