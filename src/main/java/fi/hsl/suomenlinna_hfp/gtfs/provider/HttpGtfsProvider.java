@@ -60,8 +60,12 @@ public class HttpGtfsProvider implements GtfsProvider {
         LOG.info("Downloading GTFS feed from {}", url);
 
         final long startTime = System.nanoTime();
-
-        final HttpResponse<Path> response = httpClient.send(HttpRequest.newBuilder().uri(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofFile(path));
+        
+        HttpRequest httpRequest = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
+        LOG.info("HttpRequest: {}", httpRequest);
+        HttpResponse.BodyHandler<Path> bodyHandler = HttpResponse.BodyHandlers.ofFile(path);
+        LOG.info("HttpResponse.BodyHandler: {}", bodyHandler);
+        final HttpResponse<Path> response = httpClient.send(httpRequest, bodyHandler);
 
         LOG.info("GTFS feed downloaded in {}ms", (System.nanoTime() - startTime) / 1000000);
         return response;
