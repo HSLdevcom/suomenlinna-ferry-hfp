@@ -94,6 +94,7 @@ public class MqttHfpPublisher implements HfpPublisher {
             @Override
             public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                 if (onError != null) {
+                    LOG.error("Failed to connect to MQTT broker", exception);
                     onError.accept(exception);
                 }
             }
