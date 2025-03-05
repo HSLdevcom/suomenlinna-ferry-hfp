@@ -76,11 +76,8 @@ public class HfpProducer {
 
             tripProcessor.updateGtfsData(gtfsIndex, serviceDates);
         }, this::onError);
-        LOG.info("gtfsProvider started. ErrorQueue size: {}", errorQueue.size());
         vehiclePositionProvider.start(vehiclePositionQueue::offer, vehicleMetadata -> vehicleMetadatas.put(vehicleMetadata.getId(), vehicleMetadata), this::onError);
-        LOG.info("vehiclePositionProvider started. ErrorQueue size: {}", errorQueue.size());
         hfpPublisher.connect(() -> {}, this::onError);
-        LOG.info("hfpPublisher connected. ErrorQueue size: {}", errorQueue.size());
 
         while (true) {
             if (!errorQueue.isEmpty()) {

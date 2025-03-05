@@ -8,9 +8,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -25,6 +28,9 @@ public class HttpGtfsProvider implements GtfsProvider {
 
     private volatile ScheduledFuture scheduledFuture;
 
+    private final HttpClient httpClient;
+
+    private final String url;
     private final long interval;
     private final TimeUnit timeUnit;
 
@@ -33,6 +39,8 @@ public class HttpGtfsProvider implements GtfsProvider {
     private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
 
     public HttpGtfsProvider(HttpClient httpClient, String url, long interval, TimeUnit timeUnit, Collection<String> routeIds) {
+        this.httpClient = httpClient;
+        this.url = url;
         this.interval = interval;
         this.timeUnit = timeUnit;
         this.routeIds = routeIds;
@@ -46,6 +54,17 @@ public class HttpGtfsProvider implements GtfsProvider {
     @Override
     public boolean isActive() {
         return scheduledFuture != null;
+    }
+
+    private HttpResponse<Path> downloadToFile(Path path) throws IOException, InterruptedException {
+        LOG.info("Downloading GTFS feed from {}", url);
+
+        final long startTime = System.nanoTime();
+
+        final HttpResponse<Path> response = httpClient.send(HttpRequest.newBuilder().uri(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofFile(path));
+
+        LOG.info("GTFS feed downloaded in {}ms", (System.nanoTime() - startTime) / 1000000);
+        return response;
     }
 
     private GtfsFeed parseGtfs(File file) throws IOException {
@@ -66,18 +85,27 @@ public class HttpGtfsProvider implements GtfsProvider {
         }
 
         scheduledFuture = executorService.scheduleAtFixedRate(() -> {
-            LOG.info("Reading GTFS file...");
-            Path gtfsFile = Paths.get("/hsl.zip");
+            Path gtfsFile = null;
 
             try {
-                LOG.info("Reading GTFS file from {}", gtfsFile);
-                GtfsFeed gtfsFeed = parseGtfs(gtfsFile.toFile());
+                gtfsFile = Files.createTempFile("gtfs", ".zip");
+
+                HttpResponse<Path> response = downloadToFile(gtfsFile);
+                GtfsFeed gtfsFeed = parseGtfs(response.body().toFile());
 
                 lastUpdate = System.nanoTime();
                 callback.accept(gtfsFeed);
-            } catch (IOException e) {
-                LOG.warn("Failed to read GTFS file", e);
+            } catch (IOException | InterruptedException e) {
+                LOG.warn("Failed to download GTFS feed from {}", url, e);
                 onError.accept(e);
+            } finally {
+                if (gtfsFile != null) {
+                    try {
+                        Files.deleteIfExists(gtfsFile);
+                    } catch (IOException e) {
+                        LOG.warn("Failed to delete temporary file {}", gtfsFile.getFileName().toString(), e);
+                    }
+                }
             }
         }, 0, interval, timeUnit);
     }
