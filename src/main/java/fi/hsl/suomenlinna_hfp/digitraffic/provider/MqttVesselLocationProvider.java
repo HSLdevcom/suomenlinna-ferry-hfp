@@ -144,7 +144,6 @@ public class MqttVesselLocationProvider extends VesselLocationProvider {
 
             @Override
             public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                LOG.error("Failed to connect to MQTT broker. BrokerUri: {}", brokerUri, exception);
                 onConnectionFailed.accept(exception);
             }
         });

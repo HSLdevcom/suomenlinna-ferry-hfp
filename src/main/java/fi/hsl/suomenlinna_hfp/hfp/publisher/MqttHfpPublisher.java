@@ -94,7 +94,6 @@ public class MqttHfpPublisher implements HfpPublisher {
             @Override
             public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                 if (onError != null) {
-                    LOG.error("Failed to connect to MQTT broker. BrokerUri: {}", brokerUri, exception);
                     onError.accept(exception);
                 }
             }
@@ -125,6 +124,8 @@ public class MqttHfpPublisher implements HfpPublisher {
 
     @Override
     public void publish(Topic topic, Payload payload) throws MqttException {
+        LOG.info("Not publishing message to topic {}. Payload: {}", topic, payload);
+        /*
         try {
             MqttMessage mqttMessage = new MqttMessage(objectMapper.writeValueAsBytes(Collections.singletonMap(topic.eventType.name(), payload)));
             mqttMessage.setQos(1);
@@ -133,6 +134,7 @@ public class MqttHfpPublisher implements HfpPublisher {
         } catch (JsonProcessingException e) {
             LOG.warn("Failed to serialize HFP message as JSON", e);
         }
+         */
     }
 
     @Override
