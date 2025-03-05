@@ -77,7 +77,7 @@ public class HfpProducer {
             tripProcessor.updateGtfsData(gtfsIndex, serviceDates);
         }, this::onError);
         vehiclePositionProvider.start(vehiclePositionQueue::offer, vehicleMetadata -> vehicleMetadatas.put(vehicleMetadata.getId(), vehicleMetadata), this::onError);
-        //hfpPublisher.connect(() -> {}, this::onError);
+        hfpPublisher.connect(() -> {}, this::onError);
 
         while (true) {
             if (!errorQueue.isEmpty()) {
