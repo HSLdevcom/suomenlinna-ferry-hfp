@@ -6,13 +6,9 @@ Application for producing [HFP](https://digitransit.fi/en/developers/apis/4-real
 
 Gradle build system is used.
 
-1. Run tests with `./gradlew test`
-2. Run application with `./gradlew run`
-3. Build runnable JAR with `./gradlew shadowJar`
-
 ## Usage
 
-The application can be run either with Gradle or Docker. Environment variables are used to configure how the application works. Currently there are two modes for the application, which can be selected with `CONFIG` environment variable: `SBDRIVE` and `SUOMENLINNA`, which use configuration files `sbdrive.conf` and `suomenlinna.conf` respectively. See the specified file and `application.conf` for other available environment variables.
+The application can be run with Docker. Environment variables are used to configure how the application works. Currently there are two modes for the application, which can be selected with `CONFIG` environment variable: `SBDRIVE` and `SUOMENLINNA`, which use configuration files `sbdrive.conf` and `suomenlinna.conf` respectively. See the specified file and `application.conf` for other available environment variables.
 
 ## Versioning
 
@@ -23,5 +19,7 @@ This application uses calendar versioning with the following pattern: `YYYYMMDD`
 ![Architecture diagram](docs/suomenlinna-ferry-hfp.png)
 
 The application works by matching vehicle positions to scheduled trips by checking whether the vehicle is near the first stop of the trip when the trip should begin. Vehicle positions can be listened over MQTT or polled using HTTP. Schedules for the trips are found from a GTFS package that will be downloaded regularly.
+
+HSL GTFS data is downloaded hourly and stored in a local hsl.zip file.
 
 Currently the application is optimized for matching Suomenlinna ferry positions available from [meri.digitraffic.fi](https://www.digitraffic.fi/meriliikenne/) to their scheduled trips, but other vehicles are also supported (e.g. robot buses). See `PollingVehicleStateProvider` and `MqttVesselLocationProvider` for examples.

@@ -25,7 +25,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload .jar file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: suomenlinna-ferry-hfp.jar
           path: build/libs/suomenlinna-ferry-hfp.jar
@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download .jar file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: suomenlinna-ferry-hfp.jar
           path: build/libs
@@ -56,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download .jar file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: suomenlinna-ferry-hfp.jar
           path: build/libs
@@ -70,3 +70,22 @@ jobs:
           username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
           password: ${{ secrets.TRANSITDATA_DOCKERHUB_TOKEN  }}
           tags: "prod,${{ steps.git_tag.outputs.GIT_TAG }}"
+  build-aks-dev-docker-image:
+    needs: test
+    runs-on: ubuntu-latest
+    # Run only on aks-dev branch
+    if: github.ref == 'refs/heads/aks-dev'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download .jar file
+        uses: actions/download-artifact@v4
+        with:
+          name: suomenlinna-ferry-hfp.jar
+          path: build/libs
+      - name: Build and publish aks-dev Docker image
+        uses: elgohr/Publish-Docker-Github-Action@v5
+        with:
+          name: hsldevcom/suomenlinna-ferry-hfp
+          username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
+          password: ${{ secrets.TRANSITDATA_DOCKERHUB_TOKEN }}
+          tags: aks-dev

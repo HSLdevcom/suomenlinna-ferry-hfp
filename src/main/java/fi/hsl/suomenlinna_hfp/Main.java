@@ -5,8 +5,8 @@ import com.typesafe.config.ConfigFactory;
 import fi.hsl.suomenlinna_hfp.common.PassengerCountProvider;
 import fi.hsl.suomenlinna_hfp.common.VehiclePositionProvider;
 import fi.hsl.suomenlinna_hfp.digitraffic.provider.MqttVesselLocationProvider;
+import fi.hsl.suomenlinna_hfp.gtfs.provider.FileGtfsProvider;
 import fi.hsl.suomenlinna_hfp.gtfs.provider.GtfsProvider;
-import fi.hsl.suomenlinna_hfp.gtfs.provider.HttpGtfsProvider;
 import fi.hsl.suomenlinna_hfp.health.HealthNotificationService;
 import fi.hsl.suomenlinna_hfp.health.HealthServer;
 import fi.hsl.suomenlinna_hfp.hfp.model.Topic;
@@ -53,7 +53,7 @@ public class Main {
         int publisherMaxReconnects = config.getInt("publisher.maxReconnects");
 
         HttpClient httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
-        GtfsProvider gtfsProvider = new HttpGtfsProvider(httpClient, gtfsUrl, gtfsPollInterval.getSeconds(), TimeUnit.SECONDS, routes);
+        GtfsProvider gtfsProvider = new FileGtfsProvider("/hsl.zip", gtfsPollInterval.getSeconds(), TimeUnit.SECONDS, routes);
 
         MqttHfpPublisher mqttHfpPublisher = new MqttHfpPublisher(publisherBroker, publisherMaxReconnects);
 

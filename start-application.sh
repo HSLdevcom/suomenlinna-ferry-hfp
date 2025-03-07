@@ -1,5 +1,13 @@
 #!/bin/sh
 
+echo "Downloading HSL GTFS data..."
+wget https://dev.hsl.fi/gtfs/hsl.zip
+ls -la hsl.zip
+
+echo "Starting cron daemon..."
+crond -f -d 8 &
+
+echo "Starting application..."
 if [[ "${DEBUG_ENABLED}" = true ]]; then
   java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -XX:InitialRAMPercentage=10.0 -XX:MaxRAMPercentage=95.0 -jar /app/application.jar
 else
